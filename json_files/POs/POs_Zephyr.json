@@ -1,0 +1,33 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-305A",
+      "contract_id": "CON-TECH-2025-005",
+      "status": "ACTIVE",
+      "description": "Cross-platform mobile app foundation for Project Zephyr.",
+      "total_value": 16000.00,
+      "cost_center": "PROJ-ZEP-MBL",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-03-10",
+      "issue_date": "2025-03-10",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-305B",
+      "contract_id": "CON-TECH-2025-005",
+      "status": "ACTIVE",
+      "description": "Offline sync and notification services.",
+      "total_value": 14000.00,
+      "cost_center": "PROJ-ZEP-SVC",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-05-15",
+      "issue_date": "2025-05-15",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}
+

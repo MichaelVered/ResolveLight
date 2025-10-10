@@ -1,0 +1,33 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-309A",
+      "contract_id": "CON-TECH-2025-009",
+      "status": "ACTIVE",
+      "description": "Federated GraphQL and rate limiting for Project Vortex.",
+      "total_value": 13000.00,
+      "cost_center": "PROJ-VOR-API",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-05-05",
+      "issue_date": "2025-05-05",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-309B",
+      "contract_id": "CON-TECH-2025-009",
+      "status": "ACTIVE",
+      "description": "Zero-downtime deployment setup.",
+      "total_value": 9000.00,
+      "cost_center": "PROJ-VOR-OPS",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-11-15",
+      "issue_date": "2025-11-15",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}
+

@@ -1,0 +1,45 @@
+{
+  "contract_id": "CON-TECH-2025-005",
+  "contract_title": "2025 Master Services Agreement - Project Zephyr",
+  "contract_metadata": {
+    "version": "1.0",
+    "status": "Active",
+    "effective_date": "2025-03-01",
+    "end_date": "2025-12-31",
+    "contract_currency": "USD",
+    "contract_ceiling_value": 60000.00
+  },
+  "parties": {
+    "client": {
+      "name": "Global Innovations Corp.",
+      "address": "123 Enterprise Blvd, Innovation City, 90210",
+      "contact_person": "Jane Doe",
+      "contact_email": "jane.doe@globalinnovations.corp"
+    },
+    "supplier": {
+      "name": "Apex Systems Studio",
+      "vendor_id": "V-99012",
+      "address": "88 Summit Street, Ridge Town, 80301",
+      "contact_person": "Ethan Brooks",
+      "contact_email": "ethan.brooks@apexsystems.studio"
+    }
+  },
+  "sections": [
+    {
+      "section_id": "1.0",
+      "section_title": "Scope of Work (SOW)",
+      "details": "Create a cross-platform mobile app for Project Zephyr, featuring offline sync, push notifications, and secure file sharing."
+    },
+    {
+      "section_id": "2.0",
+      "section_title": "Billing Terms and Schedule",
+      "details": "Blended rate $150/hour for mobile engineering and backend services. Travel and third-party services billed at cost + 10%. Invoiced monthly, Net 30."
+    },
+    {
+      "section_id": "3.0",
+      "section_title": "Legal and Confidentiality",
+      "details": "This agreement is governed by the laws of the State of California. All work performed under this agreement is considered confidential and the intellectual property of Global Innovations Corp."
+    }
+  ]
+}
+

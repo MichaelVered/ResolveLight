@@ -1,0 +1,47 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-302A",
+      "contract_id": "CON-TECH-2025-002",
+      "status": "ACTIVE",
+      "description": "Event ingestion pipelines for Project Atlas.",
+      "total_value": 20000.00,
+      "cost_center": "PROJ-ATL-DATA",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-01-20",
+      "issue_date": "2025-01-20",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-302B",
+      "contract_id": "CON-TECH-2025-002",
+      "status": "ACTIVE",
+      "description": "Interactive visualization components and dashboards.",
+      "total_value": 15000.00,
+      "cost_center": "PROJ-ATL-APP",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-03-10",
+      "issue_date": "2025-03-10",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-302C",
+      "contract_id": "CON-TECH-2025-002",
+      "status": "ACTIVE",
+      "description": "Stream processing framework optimization.",
+      "total_value": 10000.00,
+      "cost_center": "PROJ-ATL-STREAM",
+      "requester": "david@globalinnovations.corp",
+      "effective_date": "2025-06-15",
+      "issue_date": "2025-06-15",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}
+

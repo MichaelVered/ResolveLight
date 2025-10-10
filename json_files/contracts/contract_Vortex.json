@@ -1,0 +1,45 @@
+{
+  "contract_id": "CON-TECH-2025-009",
+  "contract_title": "2025 Master Services Agreement - Project Vortex",
+  "contract_metadata": {
+    "version": "1.0",
+    "status": "Active",
+    "effective_date": "2025-05-01",
+    "end_date": "2025-12-31",
+    "contract_currency": "USD",
+    "contract_ceiling_value": 75000.00
+  },
+  "parties": {
+    "client": {
+      "name": "Global Innovations Corp.",
+      "address": "123 Enterprise Blvd, Innovation City, 90210",
+      "contact_person": "Jane Doe",
+      "contact_email": "jane.doe@globalinnovations.corp"
+    },
+    "supplier": {
+      "name": "Catalyst Dev Collective",
+      "vendor_id": "V-64720",
+      "address": "5 Catalyst Court, Engine City, 73301",
+      "contact_person": "Isabella Moore",
+      "contact_email": "isabella.moore@catalyst.dev"
+    }
+  },
+  "sections": [
+    {
+      "section_id": "1.0",
+      "section_title": "Scope of Work (SOW)",
+      "details": "Re-architect API gateway with federated GraphQL, rate limiting, and zero-downtime deploys."
+    },
+    {
+      "section_id": "2.0",
+      "section_title": "Billing Terms and Schedule",
+      "details": "Capacity-based: dedicated squad at $55,000/month (up to 3 engineers + 1 lead). Additional ad‑hoc support at $150/hour. Invoices monthly, Net 30."
+    },
+    {
+      "section_id": "3.0",
+      "section_title": "Legal and Confidentiality",
+      "details": "This agreement is governed by the laws of the State of California. All work performed under this agreement is considered confidential and the intellectual property of Global Innovations Corp."
+    }
+  ]
+}
+

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/google/adk-python/refs/heads/main/src/google/adk/agents/config_schemas/AgentConfig.json
+name: triage_agent
+description: Routes invoices to payment or HITL based on validation results; logs outcomes.
+model: gemini-1.5-flash
+agent_class: LlmAgent
+
+instruction: |
+  You are the TriageResolution Agent.
+  1. Reuse the most recent invoice filename the user provided (or ask for it if unknown).
+  2. Call the triage tool with that filename. It will compute validation and perform logging.
+  3. Output the tool’s concise string (APPROVED or REJECTED with references to logs/exception id).
+  4. Do not fabricate data; rely only on tool output.
+
+tools:
+  - name: ResolveLight.tool_library.triage_resolution_tool.triage_and_route_tool
+
+

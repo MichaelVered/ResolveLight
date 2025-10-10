@@ -1,0 +1,44 @@
+{
+  "contract_id": "CON-AI-2025-009",
+  "contract_title": "2025 Master Services Agreement - AI Strategy Consulting",
+  "contract_metadata": {
+    "version": "1.0",
+    "status": "Active",
+    "effective_date": "2025-01-01",
+    "end_date": "2025-12-31",
+    "contract_currency": "USD",
+    "contract_ceiling_value": 150000.00
+  },
+  "parties": {
+    "client": {
+      "name": "Global Innovations Corp.",
+      "address": "123 Enterprise Blvd, Innovation City, 90210",
+      "contact_person": "Jane Doe",
+      "contact_email": "jane.doe@globalinnovations.corp"
+    },
+    "supplier": {
+      "name": "Nexus Innovations LLC",
+      "vendor_id": "V-91245",
+      "address": "808 Algorithm Way, Neuron Valley, 95113",
+      "contact_person": "Dr. Aris Thorne",
+      "contact_email": "aris.thorne@nexusinnovations.ai"
+    }
+  },
+  "sections": [
+    {
+      "section_id": "1.0",
+      "section_title": "Scope of Work (SOW)",
+      "details": "Provide ongoing strategic consulting for the development and deployment of next-generation large language models and generative AI platforms."
+    },
+    {
+      "section_id": "2.0",
+      "section_title": "Billing Terms and Schedule",
+      "details": "Tiered pricing for consultation hours. The first 20 hours per month are billed at $400/hr. All subsequent hours in the same month are billed at a discounted rate of $325/hr. Invoices are to be submitted monthly, Net 30."
+    },
+    {
+      "section_id": "3.0",
+      "section_title": "Legal and Confidentiality",
+      "details": "This agreement is governed by the laws of the State of Delaware. All work performed under this agreement is considered confidential and the intellectual property of Global Innovations Corp."
+    }
+  ]
+}

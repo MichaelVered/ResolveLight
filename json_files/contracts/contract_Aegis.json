@@ -1,0 +1,45 @@
+{
+  "contract_id": "CON-TECH-2025-004",
+  "contract_title": "2025 Master Services Agreement - Project Aegis",
+  "contract_metadata": {
+    "version": "1.0",
+    "status": "Active",
+    "effective_date": "2025-02-15",
+    "end_date": "2025-12-31",
+    "contract_currency": "USD",
+    "contract_ceiling_value": 70000.00
+  },
+  "parties": {
+    "client": {
+      "name": "Global Innovations Corp.",
+      "address": "123 Enterprise Blvd, Innovation City, 90210",
+      "contact_person": "Jane Doe",
+      "contact_email": "jane.doe@globalinnovations.corp"
+    },
+    "supplier": {
+      "name": "Quantum Apps Co.",
+      "vendor_id": "V-88301",
+      "address": "701 Horizon Ave, Cloud City, 94016",
+      "contact_person": "Sophia Nguyen",
+      "contact_email": "sophia.nguyen@quantumapps.co"
+    }
+  },
+  "sections": [
+    {
+      "section_id": "1.0",
+      "section_title": "Scope of Work (SOW)",
+      "details": "Develop a zero-trust identity platform for Project Aegis, integrating SSO, MFA, and device posture checks."
+    },
+    {
+      "section_id": "2.0",
+      "section_title": "Billing Terms and Schedule",
+      "details": "Tiered hourly rates by role: Principal $200/hr, Senior $170/hr, Engineer $140/hr. Minimum monthly commitment 80 hours. Invoices monthly, Net 30."
+    },
+    {
+      "section_id": "3.0",
+      "section_title": "Legal and Confidentiality",
+      "details": "This agreement is governed by the laws of the State of California. All work performed under this agreement is considered confidential and the intellectual property of Global Innovations Corp."
+    }
+  ]
+}
+

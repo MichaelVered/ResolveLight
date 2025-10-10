@@ -1,0 +1,33 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-308A",
+      "contract_id": "CON-TECH-2025-008",
+      "status": "ACTIVE",
+      "description": "Feature flag platform implementation.",
+      "total_value": 14000.00,
+      "cost_center": "PROJ-HOR-FEAT",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-04-20",
+      "issue_date": "2025-04-20",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-308B",
+      "contract_id": "CON-TECH-2025-008",
+      "status": "ACTIVE",
+      "description": "Experimentation framework and guardrail metrics.",
+      "total_value": 11000.00,
+      "cost_center": "PROJ-HOR-EXP",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-10-01",
+      "issue_date": "2025-10-01",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}
+

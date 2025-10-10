@@ -1,0 +1,45 @@
+{
+  "contract_id": "CON-TECH-2025-008",
+  "contract_title": "2025 Master Services Agreement - Project Horizon",
+  "contract_metadata": {
+    "version": "1.0",
+    "status": "Active",
+    "effective_date": "2025-04-15",
+    "end_date": "2025-12-31",
+    "contract_currency": "USD",
+    "contract_ceiling_value": 40000.00
+  },
+  "parties": {
+    "client": {
+      "name": "Global Innovations Corp.",
+      "address": "123 Enterprise Blvd, Innovation City, 90210",
+      "contact_person": "Jane Doe",
+      "contact_email": "jane.doe@globalinnovations.corp"
+    },
+    "supplier": {
+      "name": "VectorWorks Group",
+      "vendor_id": "V-52901",
+      "address": "77 Vector Drive, Matrix City, 95054",
+      "contact_person": "Noah Rivera",
+      "contact_email": "noah.rivera@vectorworks.group"
+    }
+  },
+  "sections": [
+    {
+      "section_id": "1.0",
+      "section_title": "Scope of Work (SOW)",
+      "details": "Implement a feature flag platform and experimentation framework, including SDK integration and guardrail metrics."
+    },
+    {
+      "section_id": "2.0",
+      "section_title": "Billing Terms and Schedule",
+      "details": "Outcome-based pricing: $12,000 for feature flag rollout, $9,000 for experimentation enablement; support at $135/hour. Invoices upon acceptance, Net 30."
+    },
+    {
+      "section_id": "3.0",
+      "section_title": "Legal and Confidentiality",
+      "details": "This agreement is governed by the laws of the State of California. All work performed under this agreement is considered confidential and the intellectual property of Global Innovations Corp."
+    }
+  ]
+}
+

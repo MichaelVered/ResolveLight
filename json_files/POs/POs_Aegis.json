@@ -1,0 +1,33 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-304A",
+      "contract_id": "CON-TECH-2025-004",
+      "status": "ACTIVE",
+      "description": "SSO and MFA foundation work for Project Aegis.",
+      "total_value": 18000.00,
+      "cost_center": "PROJ-AEG-SEC",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-02-20",
+      "issue_date": "2025-02-20",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-304B",
+      "contract_id": "CON-TECH-2025-004",
+      "status": "ACTIVE",
+      "description": "Device posture checks and policy engine integration.",
+      "total_value": 12000.00,
+      "cost_center": "PROJ-AEG-POLICY",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-05-01",
+      "issue_date": "2025-05-01",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}
+

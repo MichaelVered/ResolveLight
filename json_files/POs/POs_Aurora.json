@@ -1,0 +1,32 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-310A",
+      "contract_id": "CON-TECH-2025-010",
+      "status": "ACTIVE",
+      "description": "Data labeling and model training for personalization.",
+      "total_value": 12000.00,
+      "cost_center": "PROJ-AUR-ML",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-05-20",
+      "issue_date": "2025-05-20",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-310B",
+      "contract_id": "CON-TECH-2025-010",
+      "status": "ACTIVE",
+      "description": "A/B rollout and monitoring setup.",
+      "total_value": 8000.00,
+      "cost_center": "PROJ-AUR-EXP",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-12-01",
+      "issue_date": "2025-12-01",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}

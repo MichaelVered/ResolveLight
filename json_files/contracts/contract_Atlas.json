@@ -1,0 +1,45 @@
+{
+  "contract_id": "CON-TECH-2025-002",
+  "contract_title": "2025 Master Services Agreement - Project Atlas",
+  "contract_metadata": {
+    "version": "1.0",
+    "status": "Active",
+    "effective_date": "2025-01-15",
+    "end_date": "2025-12-31",
+    "contract_currency": "USD",
+    "contract_ceiling_value": 80000.00
+  },
+  "parties": {
+    "client": {
+      "name": "Global Innovations Corp.",
+      "address": "123 Enterprise Blvd, Innovation City, 90210",
+      "contact_person": "Jane Doe",
+      "contact_email": "jane.doe@globalinnovations.corp"
+    },
+    "supplier": {
+      "name": "CodeCraft Labs LLC",
+      "vendor_id": "V-60111",
+      "address": "19 Artisan Park, Dev City, 94021",
+      "contact_person": "Ava Turner",
+      "contact_email": "ava.turner@codecraftlabs.dev"
+    }
+  },
+  "sections": [
+    {
+      "section_id": "1.0",
+      "section_title": "Scope of Work (SOW)",
+      "details": "Build a real-time analytics dashboard for Project Atlas, including event ingestion pipelines, stream processing, and interactive data visualizations."
+    },
+    {
+      "section_id": "2.0",
+      "section_title": "Billing Terms and Schedule",
+      "details": "Fixed-fee milestones: Phase 1 $20,000 (net 30 on acceptance), Phase 2 $15,000, Phase 3 $10,000. Additional scope billed at $155/hour with prior approval."
+    },
+    {
+      "section_id": "3.0",
+      "section_title": "Legal and Confidentiality",
+      "details": "This agreement is governed by the laws of the State of California. All work performed under this agreement is considered confidential and the intellectual property of Global Innovations Corp."
+    }
+  ]
+}
+

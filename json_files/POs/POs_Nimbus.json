@@ -1,0 +1,33 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-307A",
+      "contract_id": "CON-TECH-2025-007",
+      "status": "ACTIVE",
+      "description": "GitOps enablement for Project Nimbus.",
+      "total_value": 15000.00,
+      "cost_center": "PROJ-NIM-DEVOPS",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-04-05",
+      "issue_date": "2025-04-05",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-307B",
+      "contract_id": "CON-TECH-2025-007",
+      "status": "ACTIVE",
+      "description": "Progressive delivery and cost optimization.",
+      "total_value": 12000.00,
+      "cost_center": "PROJ-NIM-PLAT",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-09-15",
+      "issue_date": "2025-09-15",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}
+

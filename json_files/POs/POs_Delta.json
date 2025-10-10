@@ -1,0 +1,33 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-306A",
+      "contract_id": "CON-TECH-2025-006",
+      "status": "ACTIVE",
+      "description": "Lakehouse ingestion and quality checks for Project Delta.",
+      "total_value": 17000.00,
+      "cost_center": "PROJ-DEL-DATA",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-03-20",
+      "issue_date": "2025-03-20",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-306B",
+      "contract_id": "CON-TECH-2025-006",
+      "status": "ACTIVE",
+      "description": "Governance and catalog implementation.",
+      "total_value": 13000.00,
+      "cost_center": "PROJ-DEL-GOV",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-07-01",
+      "issue_date": "2025-07-01",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}
+

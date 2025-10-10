@@ -1,0 +1,33 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-303A",
+      "contract_id": "CON-TECH-2025-003",
+      "status": "ACTIVE",
+      "description": "Service decomposition and database redesign for Project Helios.",
+      "total_value": 22000.00,
+      "cost_center": "PROJ-HEL-ARCH",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-02-10",
+      "issue_date": "2025-02-10",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    },
+    {
+      "po_number": "PO-2025-303B",
+      "contract_id": "CON-TECH-2025-003",
+      "status": "ACTIVE",
+      "description": "CI/CD pipelines and deployment automation.",
+      "total_value": 18000.00,
+      "cost_center": "PROJ-HEL-DEVOPS",
+      "requester": "charles@globalinnovations.corp",
+      "effective_date": "2025-04-01",
+      "issue_date": "2025-04-01",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp"
+    }
+  ]
+}
+

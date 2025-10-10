@@ -1,0 +1,45 @@
+{
+  "contract_id": "CON-TECH-2025-003",
+  "contract_title": "2025 Master Services Agreement - Project Helios",
+  "contract_metadata": {
+    "version": "1.0",
+    "status": "Active",
+    "effective_date": "2025-02-01",
+    "end_date": "2025-12-31",
+    "contract_currency": "USD",
+    "contract_ceiling_value": 90000.00
+  },
+  "parties": {
+    "client": {
+      "name": "Global Innovations Corp.",
+      "address": "123 Enterprise Blvd, Innovation City, 90210",
+      "contact_person": "Jane Doe",
+      "contact_email": "jane.doe@globalinnovations.corp"
+    },
+    "supplier": {
+      "name": "NovaSoft Solutions Ltd.",
+      "vendor_id": "V-77442",
+      "address": "22 Sunrise Road, Silicon Hills, 78701",
+      "contact_person": "Liam Patel",
+      "contact_email": "liam.patel@novasoft.solutions"
+    }
+  },
+  "sections": [
+    {
+      "section_id": "1.0",
+      "section_title": "Scope of Work (SOW)",
+      "details": "Migrate the legacy monolith to a modular service architecture for Project Helios, including DB schema redesign and CI/CD pipelines."
+    },
+    {
+      "section_id": "2.0",
+      "section_title": "Billing Terms and Schedule",
+      "details": "Retainer model: $25,000 monthly retainer covering up to 160 hours; excess billed at $140/hour. Unused hours roll over one month. Net 30."
+    },
+    {
+      "section_id": "3.0",
+      "section_title": "Legal and Confidentiality",
+      "details": "This agreement is governed by the laws of the State of California. All work performed under this agreement is considered confidential and the intellectual property of Global Innovations Corp."
+    }
+  ]
+}
+
