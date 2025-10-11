@@ -12,7 +12,23 @@
       "issue_date": "2025-01-10",
       "payment_terms": "Net 30",
       "currency": "USD",
-      "approver": "finance.approver@globalinnovations.corp"
+      "approver": "finance.approver@globalinnovations.corp",
+      "line_items": [
+        {
+          "item_id": "ORI-001",
+          "description": "Microservices development sprint",
+          "quantity": 30,
+          "unit_price": 150.00,
+          "line_total": 4500.00
+        },
+        {
+          "item_id": "ORI-002",
+          "description": "Architecture & design hours",
+          "quantity": 10,
+          "unit_price": 150.00,
+          "line_total": 1500.00
+        }
+      ]
     },
     {
       "po_number": "PO-2025-301B",

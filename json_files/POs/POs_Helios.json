@@ -12,7 +12,23 @@
       "issue_date": "2025-02-10",
       "payment_terms": "Net 30",
       "currency": "USD",
-      "approver": "finance.approver@globalinnovations.corp"
+      "approver": "finance.approver@globalinnovations.corp",
+      "line_items": [
+        {
+          "item_id": "HEL-001",
+          "description": "Service decomposition planning",
+          "quantity": 32,
+          "unit_price": 150.00,
+          "line_total": 4800.00
+        },
+        {
+          "item_id": "HEL-002",
+          "description": "Database redesign workshop",
+          "quantity": 8,
+          "unit_price": 150.00,
+          "line_total": 1200.00
+        }
+      ]
     },
     {
       "po_number": "PO-2025-303B",

@@ -12,7 +12,23 @@
       "issue_date": "2025-03-20",
       "payment_terms": "Net 30",
       "currency": "USD",
-      "approver": "finance.approver@globalinnovations.corp"
+      "approver": "finance.approver@globalinnovations.corp",
+      "line_items": [
+        {
+          "item_id": "DEL-001",
+          "description": "Data platform ingestion",
+          "quantity": 34,
+          "unit_price": 150.00,
+          "line_total": 5100.00
+        },
+        {
+          "item_id": "DEL-002",
+          "description": "Quality checks setup",
+          "quantity": 10,
+          "unit_price": 150.00,
+          "line_total": 1500.00
+        }
+      ]
     },
     {
       "po_number": "PO-2025-306B",

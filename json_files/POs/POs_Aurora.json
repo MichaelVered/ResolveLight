@@ -12,7 +12,23 @@
       "issue_date": "2025-05-20",
       "payment_terms": "Net 30",
       "currency": "USD",
-      "approver": "finance.approver@globalinnovations.corp"
+      "approver": "finance.approver@globalinnovations.corp",
+      "line_items": [
+        {
+          "item_id": "AUR-001",
+          "description": "Data labeling",
+          "quantity": 500,
+          "unit_price": 8.00,
+          "line_total": 4000.00
+        },
+        {
+          "item_id": "AUR-002",
+          "description": "Model training",
+          "quantity": 1,
+          "unit_price": 3500.00,
+          "line_total": 3500.00
+        }
+      ]
     },
     {
       "po_number": "PO-2025-310B",

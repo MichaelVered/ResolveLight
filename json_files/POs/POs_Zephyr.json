@@ -12,7 +12,23 @@
       "issue_date": "2025-03-10",
       "payment_terms": "Net 30",
       "currency": "USD",
-      "approver": "finance.approver@globalinnovations.corp"
+      "approver": "finance.approver@globalinnovations.corp",
+      "line_items": [
+        {
+          "item_id": "ZEP-001",
+          "description": "Mobile foundation sprint",
+          "quantity": 36,
+          "unit_price": 150.00,
+          "line_total": 5400.00
+        },
+        {
+          "item_id": "ZEP-002",
+          "description": "Design system components",
+          "quantity": 8,
+          "unit_price": 150.00,
+          "line_total": 1200.00
+        }
+      ]
     },
     {
       "po_number": "PO-2025-305B",
