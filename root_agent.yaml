@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/google/adk-python/refs/heads/main/src/google/adk/agents/config_schemas/AgentConfig.json
 agent_class: SequentialAgent
 name: SourceToPay
-description: Reviewing incoming invoice and matching to PO and contract, make a recommendation for action.
+description: Enhanced invoice-to-pay workflow with fuzzy matching, comprehensive validation, duplicate detection, and intelligent routing to specific queues based on failure types.
 sub_agents:
   - config_path: sub_agents/contract_matching_agent.yaml
   - config_path: sub_agents/validation_agent.yaml

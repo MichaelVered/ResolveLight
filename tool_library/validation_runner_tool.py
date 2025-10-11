@@ -6,10 +6,8 @@ from .supplier_match_tool import validate_supplier
 from .date_check_tool import validate_dates
 from .simple_overbilling_tool import validate_billing
 from .po_contract_resolver_tool import resolve_invoice_to_po_and_contract
-<<<<<<< HEAD
 from .line_item_validation_tool import validate_line_items
-=======
->>>>>>> 5628a9aef1eef5a0189e331c47f47450c01b5e0e
+from .duplicate_invoice_check_tool import check_for_duplicates
 
 
 def run_validations(invoice_filename: str, repo_root: str | None = None) -> Dict[str, Any]:
@@ -50,10 +48,11 @@ def run_validations(invoice_filename: str, repo_root: str | None = None) -> Dict
     results.append(validate_supplier(invoice, contract))
     results.append(validate_billing(invoice, po_item))
     results.append(validate_dates(invoice, contract, po_item))
-<<<<<<< HEAD
     results.append(validate_line_items(invoice, po_item))
-=======
->>>>>>> 5628a9aef1eef5a0189e331c47f47450c01b5e0e
+    
+    # Add duplicate check (this doesn't require PO/contract data)
+    duplicate_check = check_for_duplicates(invoice_filename, repo_root=repo_root)
+    results.append(duplicate_check)
 
     all_pass = all(r.get("status") == "PASS" for r in results)
 
@@ -86,7 +85,14 @@ def run_validations_and_format(invoice_filename: str) -> str:
             lines.append(f"{tool}: PASS")
         else:
             reasons = r.get("exceptions") or []
-            reason_str = ", ".join(reasons) if reasons else "<none>"
+            # Handle both string and dict exceptions
+            reason_strs = []
+            for reason in reasons:
+                if isinstance(reason, dict):
+                    reason_strs.append(str(reason))
+                else:
+                    reason_strs.append(str(reason))
+            reason_str = ", ".join(reason_strs) if reason_strs else "<none>"
             lines.append(f"{tool}: FAIL - reasons: {reason_str}")
     lines.append(f"validation: {report.get('validation', 'FAIL')}")
     return "\n".join(lines)

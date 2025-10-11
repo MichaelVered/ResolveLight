@@ -205,7 +205,7 @@ if __name__ == "__main__":
     # --- IMPORTANT: Configure your Gemini API key ---
     try:
         from dotenv import load_dotenv
-        load_dotenv()
+        load_dotenv("../.env")
         api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("Missing API key. Set GOOGLE_API_KEY or GEMINI_API_KEY.")

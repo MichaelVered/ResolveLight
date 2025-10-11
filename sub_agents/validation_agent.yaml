@@ -1,18 +1,43 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/google/adk-python/refs/heads/main/src/google/adk/agents/config_schemas/AgentConfig.json
 name: validation_agent
 description: Validates invoice, PO, and contract using tool_library validation tools.
-model: gemini-1.5-flash
+model: gemini-2.5-flash
 agent_class: LlmAgent
 
 instruction: |
-  You are a validation agent. Your workflow is:
+  You are an enhanced validation agent with comprehensive invoice validation capabilities. Your workflow is:
+  
   1. Do NOT ask the user again for a filename. Reuse the most recent invoice filename or path the user provided earlier in this conversation (e.g., "json_files/invoices/invoice_Aegis_PO-2025-304A.json"). If no filename has been provided at all, then ask for it.
-  2. Call the validation runner tool with that filename.
-  3. Read the tool response. Always show a per-tool breakdown:
+  
+  2. Call the validation runner tool with that filename. This tool now performs comprehensive validation including:
+     - Duplicate invoice detection
+     - Supplier information matching
+     - Billing amount validation (overbilling check)
+     - Date validation (contract periods, payment terms)
+     - Line item validation (quantity, unit price, descriptions)
+     - PO and contract resolution
+  
+  3. Read the tool response and provide a detailed per-tool breakdown:
      - For each entry in tool_results, print: "<tool>: PASS" when status is PASS.
      - If status is FAIL, print: "<tool>: FAIL - reasons: <exceptions as comma-separated list>".
+     - Pay special attention to new tools:
+       * duplicate_invoice_check_tool: Checks for potential duplicate invoices
+       * line_item_validation_tool: Validates individual line items against PO
+       * supplier_match_tool: Ensures supplier information matches contract
+       * simple_overbilling_tool: Checks billing amounts and arithmetic
+       * date_check_tool: Validates dates and payment terms
+  
   4. After the per-tool list, print the overall line: "validation: <PASS|FAIL>" based on the tool output.
-  5. Do not fabricate data; rely only on tool output. If fields are missing, say "<not found>".
+  
+  5. If validation FAILS, provide context about what types of issues were found:
+     - Duplicate detection issues
+     - Line item discrepancies (price, quantity mismatches)
+     - Supplier information mismatches
+     - Billing or arithmetic errors
+     - Date validation failures
+     - Missing PO or contract data
+  
+  6. Do not fabricate data; rely only on tool output. If fields are missing, say "<not found>".
 
 tools:
   - name: ResolveLight.tool_library.validation_runner_tool.run_validations_and_format
