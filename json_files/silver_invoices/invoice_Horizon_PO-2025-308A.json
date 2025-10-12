@@ -1,0 +1,37 @@
+{
+  "invoice_id": "INV-HOR-2025-001",
+  "purchase_order_number": "PO-2025-308A",
+  "issue_date": "2025-04-20",
+  "due_date": "2025-05-20",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "VectorWorks Grp",
+    "vendor_id": "V-52901"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "HOR-001",
+      "description": "Feature flag rollout",
+      "quantity": 25,
+      "unit_price": 150.00,
+      "line_total": 3750.00
+    },
+    {
+      "item_id": "HOR-002",
+      "description": "Experimentation framework setup",
+      "quantity": 15,
+      "unit_price": 150.00,
+      "line_total": 2250.00
+    }
+  ],
+  "summary": {
+    "subtotal": 6000.00,
+    "tax_amount": 0.00,
+    "billing_amount": 6000.00
+  }
+}
+

@@ -25,11 +25,9 @@ import google.generativeai as genai
 # ----------------- Tool Imports -----------------
 # Import the modules containing your tool functions
 from tool_library import date_check_tool
-from tool_library import duplicate_invoice_check_tool
 from tool_library import fuzzy_matching_tool
 from tool_library import line_item_validation_tool
 from tool_library import po_contract_resolver_tool
-from tool_library import services_report_tool
 from tool_library import simple_overbilling_tool
 from tool_library import supplier_match_tool
 from tool_library import triage_resolution_tool
@@ -68,6 +66,42 @@ class JsonlLoggerPlugin(BasePlugin):
             pass
         return None
 
+# ----------------- Log Clearing Function -----------------
+
+def clear_all_logs_and_sessions():
+    """Clear all log files and session files for a clean start."""
+    import shutil
+    
+    # Clear system logs directory - only clear files that actually exist
+    system_logs_dir = "system_logs"
+    if os.path.exists(system_logs_dir):
+        # Clear all .log files in the system_logs directory
+        for file in os.listdir(system_logs_dir):
+            if file.endswith('.log'):
+                file_path = os.path.join(system_logs_dir, file)
+                try:
+                    with open(file_path, 'w') as f:
+                        f.write("")  # Clear file content
+                    print(f"🧹 Cleared: {file_path}")
+                except Exception as e:
+                    print(f"⚠️ Could not clear {file_path}: {e}")
+    
+    # Clear memory directory (session files)
+    memory_dir = "memory"
+    if os.path.exists(memory_dir):
+        for file in os.listdir(memory_dir):
+            file_path = os.path.join(memory_dir, file)
+            if os.path.isfile(file_path):
+                try:
+                    with open(file_path, 'w') as f:
+                        f.write("")  # Clear file content
+                    print(f"🧹 Cleared: {file_path}")
+                except Exception as e:
+                    print(f"⚠️ Could not clear {file_path}: {e}")
+    
+    print("✨ All logs and sessions cleared for clean start!")
+
+
 # ----------------- Main Application Logic -----------------
 
 async def main():
@@ -75,6 +109,9 @@ async def main():
     Main function to configure and run the multi-agent system (with event logging plugin).
     """
     print("🚀 Starting Agent Application (runnerLog)...")
+    
+    # Clear all logs and sessions for a clean start
+    clear_all_logs_and_sessions()
 
     # Load the root agent (and its referenced sub-agents) directly from YAML
     root_agent = load_agent_from_yaml("root_agent.yaml")

@@ -1,0 +1,29 @@
+{
+  "invoice_id": "INV-AUR-2025-001",
+  "purchase_order_number": "PO-2025-31OA",
+  "issue_date": "2025-05-20",
+  "due_date": "2025-06-19",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "Starlight Engineering",
+    "vendor_id": "V-75290"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "AUR-001",
+      "description": "Complete ML model training and deployment",
+      "quantity": 1,
+      "unit_price": 7500.00,
+      "line_total": 7500.00
+    }
+  ],
+  "summary": {
+    "subtotal": 7500.00,
+    "tax_amount": 0.00,
+    "billing_amount": 7500.00
+  }
+}

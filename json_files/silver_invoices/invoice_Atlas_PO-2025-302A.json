@@ -1,0 +1,44 @@
+{
+  "invoice_id": "INV-ATL-2025-001",
+  "purchase_order_number": "PO-2025-302A",
+  "issue_date": "2025-01-20",
+  "due_date": "2025-02-19",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "CodeCraft Labs LLC.",
+    "vendor_id": "V-60111"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "ATL-001",
+      "description": "Event ingestion setup",
+      "quantity": 25,
+      "unit_price": 150.00,
+      "line_total": 3750.00
+    },
+    {
+      "item_id": "ATL-002",
+      "description": "Streaming connector configuration",
+      "quantity": 15,
+      "unit_price": 150.00,
+      "line_total": 2250.00
+    },
+    {
+      "item_id": "ATL-003",
+      "description": "Data pipeline optimization",
+      "quantity": 12,
+      "unit_price": 150.00,
+      "line_total": 1800.00
+    }
+  ],
+  "summary": {
+    "subtotal": 7800.00,
+    "tax_amount": 0.00,
+    "billing_amount": 7800.00
+  }
+}
+

@@ -1,0 +1,44 @@
+{
+  "invoice_id": "INV-ORI-2025-001",
+  "purchase_order_number": "PO- 2025-301A",
+  "issue_date": "2025-01-10",
+  "due_date": "2025-02-09",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "Pixel Perfect Devs Inc.",
+    "vendor_id": "V-58239"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "ORI-001",
+      "description": "Microservices development sprint",
+      "quantity": 30,
+      "unit_price": 150.00,
+      "line_total": 4500.00
+    },
+    {
+      "item_id": "ORI-002",
+      "description": "Architecture & design hours",
+      "quantity": 10,
+      "unit_price": 150.00,
+      "line_total": 1500.00
+    },
+    {
+      "item_id": "ORI-003",
+      "description": "API documentation and testing",
+      "quantity": 8,
+      "unit_price": 150.00,
+      "line_total": 1200.00
+    }
+  ],
+  "summary": {
+    "subtotal": 7200.00,
+    "tax_amount": 0.00,
+    "billing_amount": 7200.00
+  }
+}
+

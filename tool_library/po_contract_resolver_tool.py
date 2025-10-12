@@ -55,9 +55,13 @@ def resolve_directories(repo_root: str) -> Tuple[List[str], List[str], List[str]
     contract_dirs: List[str] = []
 
     for base in base_dirs:
+        # Look for both "invoices" and "golden_invoices" folders
         inv = find_subdir_case_insensitive(base, "invoices")
         if inv:
             invoice_dirs.append(inv)
+        inv_golden = find_subdir_case_insensitive(base, "golden_invoices")
+        if inv_golden:
+            invoice_dirs.append(inv_golden)
 
         pos = find_subdir_case_insensitive(base, "pos")
         if pos:
@@ -150,19 +154,36 @@ def resolve_invoice_to_po_and_contract(
     Missing parts are represented as the literal string "<not found>".
     """
     root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-    invoice_dirs, po_dirs, contract_dirs = resolve_directories(root)
-
+    
     result: Dict[str, Union[str, Dict[str, Any]]] = {
         "invoice": "<not found>",
         "po_item": "<not found>",
         "contract": "<not found>",
     }
 
-    invoice_path = find_invoice_path(invoice_filename, invoice_dirs)
+    # Use direct path if it's a full path, otherwise fall back to folder scanning
+    if os.path.isabs(invoice_filename) or "/" in invoice_filename or "\\" in invoice_filename:
+        # Direct path provided - use it directly
+        invoice_path = invoice_filename
+    else:
+        # Just filename provided - fall back to folder scanning
+        invoice_dirs, po_dirs, contract_dirs = resolve_directories(root)
+        invoice_path = find_invoice_path(invoice_filename, invoice_dirs)
+    
     invoice_data = read_json_file(invoice_path) if invoice_path else None
     if not invoice_data:
         return result
     result["invoice"] = invoice_data
+
+    # Determine PO and contract directories based on how invoice was found
+    if os.path.isabs(invoice_filename) or "/" in invoice_filename or "\\" in invoice_filename:
+        # Direct path - derive PO and contract directories from invoice path
+        base_dir = os.path.dirname(os.path.dirname(invoice_path))  # Go up to json_files
+        po_dirs = [os.path.join(base_dir, "POs")]
+        contract_dirs = [os.path.join(base_dir, "contracts")]
+    else:
+        # Filename only - use resolved directories
+        invoice_dirs, po_dirs, contract_dirs = resolve_directories(root)
 
     inv_po_number = invoice_data.get("purchase_order_number")
     normalized_po = normalize_token(inv_po_number)

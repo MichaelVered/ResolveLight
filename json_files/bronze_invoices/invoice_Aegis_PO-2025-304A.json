@@ -1,0 +1,29 @@
+{
+  "invoice_id": "INV-AEG-2025-001",
+  "purchase_order_number": "PO-INVALID-999",
+  "issue_date": "2025-02-20",
+  "due_date": "2025-03-22",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "Quantum Apps Co.",
+    "vendor_id": "V-88301"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "AEG-001",
+      "description": "SSO and MFA foundation implementation",
+      "quantity": 40,
+      "unit_price": 150.00,
+      "line_total": 6000.00
+    }
+  ],
+  "summary": {
+    "subtotal": 6000.00,
+    "tax_amount": 0.00,
+    "billing_amount": 6000.00
+  }
+}

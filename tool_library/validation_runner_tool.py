@@ -7,7 +7,6 @@ from .date_check_tool import validate_dates
 from .simple_overbilling_tool import validate_billing
 from .po_contract_resolver_tool import resolve_invoice_to_po_and_contract
 from .line_item_validation_tool import validate_line_items
-from .duplicate_invoice_check_tool import check_for_duplicates
 
 
 def run_validations(invoice_filename: str, repo_root: str | None = None) -> Dict[str, Any]:
@@ -49,10 +48,6 @@ def run_validations(invoice_filename: str, repo_root: str | None = None) -> Dict
     results.append(validate_billing(invoice, po_item))
     results.append(validate_dates(invoice, contract, po_item))
     results.append(validate_line_items(invoice, po_item))
-    
-    # Add duplicate check (this doesn't require PO/contract data)
-    duplicate_check = check_for_duplicates(invoice_filename, repo_root=repo_root)
-    results.append(duplicate_check)
 
     all_pass = all(r.get("status") == "PASS" for r in results)
 

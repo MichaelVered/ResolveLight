@@ -7,7 +7,6 @@ from typing import Any, Dict, List
 from .validation_runner_tool import run_validations
 from .po_contract_resolver_tool import resolve_invoice_to_po_and_contract
 from .fuzzy_matching_tool import fuzzy_resolve_invoice_to_po_and_contract
-from .duplicate_invoice_check_tool import check_for_duplicates, mark_invoice_as_processed
 
 
 def _ts() -> str:
@@ -23,6 +22,67 @@ def _ensure_logs_dir(repo_root: str) -> str:
 def _append_line(path: str, line: str) -> None:
     with open(path, "a", encoding="utf-8") as f:
         f.write(line.rstrip("\n") + "\n")
+
+
+def _log_processed_invoice(invoice_data: Dict[str, Any], processing_result: str, logs_dir: str, additional_info: Dict[str, Any] = None) -> None:
+    """
+    Log every processed invoice to processed_invoices.log for comprehensive audit trail.
+    
+    Args:
+        invoice_data: Invoice data dictionary
+        processing_result: Final processing result (APPROVED, PENDING_APPROVAL, REJECTED)
+        logs_dir: Directory containing log files
+        additional_info: Additional information like exception_id, routing_queue, etc.
+    """
+    processed_log = os.path.join(logs_dir, "processed_invoices.log")
+    
+    # Check if this invoice has already been processed to avoid duplicates
+    invoice_id = invoice_data.get("invoice_id", "<unknown>")
+    if os.path.exists(processed_log):
+        try:
+            with open(processed_log, "r", encoding="utf-8") as f:
+                content = f.read()
+                if f'"invoice_id": "{invoice_id}"' in content:
+                    # Invoice already processed, skip logging
+                    return
+        except Exception:
+            # If we can't read the file, continue with logging
+            pass
+    
+    # Extract key invoice information
+    invoice_id = invoice_data.get("invoice_id", "<unknown>")
+    # Handle both supplier and supplier_info structures
+    supplier_info = invoice_data.get("supplier_info", invoice_data.get("supplier", {}))
+    supplier_name = supplier_info.get("name", "<unknown>")
+    vendor_id = supplier_info.get("vendor_id", "<unknown>")
+    # Use invoice_id as invoice_number if invoice_number field doesn't exist
+    invoice_number = invoice_data.get("invoice_number", invoice_data.get("invoice_id", "<unknown>"))
+    billing_amount = float(invoice_data.get("summary", {}).get("billing_amount", 0))
+    po_number = invoice_data.get("purchase_order_number", "<unknown>")
+    line_items_count = len(invoice_data.get("line_items", []))
+    issue_date = invoice_data.get("issue_date", "<unknown>")
+    
+    # Create the processed invoice record
+    processed_record = {
+        "timestamp": _ts(),
+        "invoice_id": invoice_id,
+        "supplier_name": supplier_name,
+        "vendor_id": vendor_id,
+        "invoice_number": invoice_number,
+        "billing_amount": billing_amount,
+        "po_number": po_number,
+        "processing_result": processing_result,
+        "line_items_count": line_items_count,
+        "issue_date": issue_date
+    }
+    
+    # Add additional information if provided
+    if additional_info:
+        processed_record.update(additional_info)
+    
+    # Log to processed_invoices.log
+    log_entry = f"PROCESSED: {json.dumps(processed_record)}"
+    _append_line(processed_log, log_entry)
 
 
 def _format_fail_reasons(tool_results: List[Dict[str, Any]]) -> List[str]:
@@ -64,17 +124,6 @@ def _determine_routing_queue(tool_results: List[Dict[str, Any]], invoice_data: D
         "specific_issues": []
     }
     
-    # Check for duplicate detection
-    duplicate_tool = next((r for r in tool_results if r.get("tool") == "duplicate_invoice_check_tool"), None)
-    if duplicate_tool and duplicate_tool.get("status") == "FAIL":
-        routing_info.update({
-            "queue_name": "duplicate_invoices",
-            "priority": "high",
-            "routing_reason": "Potential duplicate invoice detected",
-            "requires_manager_approval": True,
-            "specific_issues": ["duplicate_detected"]
-        })
-        return routing_info
     
     # Check for missing data issues
     dependency_tool = next((r for r in tool_results if r.get("tool") == "dependency_check"), None)
@@ -182,16 +231,7 @@ def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: D
     # Create detailed context based on queue type
     context_details = []
     
-    if queue_name == "duplicate_invoices":
-        duplicate_tool = next((r for r in tool_results if r.get("tool") == "duplicate_invoice_check_tool"), None)
-        if duplicate_tool:
-            context_details.append("DUPLICATE DETECTION:")
-            for exc in duplicate_tool.get("exceptions", []):
-                if exc.get("type") == "potential_duplicate":
-                    context_details.append(f"  - Confidence: {exc.get('confidence', 0):.1%}")
-                    context_details.append(f"  - Match reasons: {', '.join(exc.get('match_reasons', []))}")
-    
-    elif queue_name == "low_confidence_matches":
+    if queue_name == "low_confidence_matches":
         context_details.append("MATCHING CONFIDENCE:")
         context_details.append(f"  - Overall confidence: {queue_info.get('confidence_score', 0):.1%}")
         context_details.append("  - Review matching logic and consider manual verification")
@@ -232,7 +272,7 @@ SUGGESTED_ACTIONS:
   - Verify PO and contract details if matching issues
   - Approve manually if all checks pass after review
 
-MANAGER_APPROVAL_REQUIRED: {'YES' if queue_info['requires_manager_approval'] else 'NO'}
+MANAGER_APPROVAL_REQUIRED: {'YES' if queue_info.get('requires_manager_approval', False) else 'NO'}
 """
     
     return log_entry.strip()
@@ -259,38 +299,11 @@ def triage_and_route(invoice_filename: str, repo_root: str | None = None) -> Dic
     root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
     logs_dir = _ensure_logs_dir(root)
     
-    # Step 1: Check for duplicates first
-    duplicate_check = check_for_duplicates(invoice_filename, repo_root=root)
-    if duplicate_check.get("status") == "FAIL":
-        # Handle duplicate immediately
-        inv_id = "<unknown>"
-        try:
-            with open(invoice_filename, "r", encoding="utf-8") as f:
-                invoice_data = json.load(f)
-                inv_id = invoice_data.get("invoice_id", "<unknown>")
-        except Exception:
-            pass
-        
-        exception_id = f"EXC-{uuid.uuid4().hex[:12].upper()}"
-        
-        # Log to duplicate queue
-        duplicate_log = os.path.join(logs_dir, "queue_duplicate_invoices.log")
-        log_entry = _create_queue_specific_log_entry(
-            {"queue_name": "duplicate_invoices", "priority": "high", "routing_reason": "Duplicate detected"},
-            invoice_data if 'invoice_data' in locals() else {},
-            exception_id,
-            [duplicate_check]
-        )
-        _append_line(duplicate_log, log_entry)
-        
-        return {
-            "status": "REJECTED",
-            "exception_id": exception_id,
-            "routing_queue": "duplicate_invoices",
-            "priority": "high",
-            "actions": ["REJECTED → Duplicate detected, routed to duplicate queue"],
-            "logs": {"duplicate_queue_log": duplicate_log}
-        }
+    # Step 1: Skip duplicate check to make flow stateless
+    # duplicate_check = check_for_duplicates(invoice_filename, repo_root=root)
+    # if duplicate_check.get("status") == "FAIL":
+    #     # Handle duplicate immediately - REMOVED FOR STATELESS FLOW
+    #     pass
     
     # Step 2: Use fuzzy matching for better resolution
     resolution = fuzzy_resolve_invoice_to_po_and_contract(invoice_filename, repo_root=root)
@@ -321,12 +334,19 @@ def triage_and_route(invoice_filename: str, repo_root: str | None = None) -> Dic
                 "requires_manager_approval": True
             }
             
+            # High-value approval logging
             approval_log = os.path.join(logs_dir, "queue_high_value_approval.log")
             log_entry = _create_queue_specific_log_entry(queue_info, invoice, exception_id, tool_results)
             _append_line(approval_log, log_entry)
             
-            # Mark as processed for duplicate detection
-            mark_invoice_as_processed(invoice_filename, "PENDING_MANAGER_APPROVAL", repo_root=root)
+            # Log to processed_invoices.log for audit trail
+            additional_info = {
+                "exception_id": exception_id,
+                "routing_queue": "high_value_approval",
+                "priority": "high",
+                "requires_manager_approval": True
+            }
+            _log_processed_invoice(invoice, "PENDING_APPROVAL", logs_dir, additional_info)
             
             return {
                 "status": "PENDING_APPROVAL",
@@ -354,10 +374,11 @@ def triage_and_route(invoice_filename: str, repo_root: str | None = None) -> Dic
                     f"    payment_item: invoice_id={inv_id}, po_number={po_num}, item_id={item_id}, description={desc}, amount={total}"
                 )
             
-            # Mark as processed for duplicate detection
-            mark_invoice_as_processed(invoice_filename, "APPROVED", repo_root=root)
-            
             actions.append("APPROVED → Payments logged")
+            
+            # Log to processed_invoices.log for audit trail
+            _log_processed_invoice(invoice, "APPROVED", logs_dir)
+            
             return {
                 "status": "APPROVED",
                 "actions": actions,
@@ -382,8 +403,17 @@ def triage_and_route(invoice_filename: str, repo_root: str | None = None) -> Dic
     exceptions_log = os.path.join(logs_dir, "exceptions_ledger.log")
     _append_line(exceptions_log, f"[EXCEPTION] [{_ts()}] id={exception_id} status=OPEN type=VALIDATION_FAILED invoice_id={inv_id} queue={queue_name}")
     
-    # Mark as processed for duplicate detection
-    mark_invoice_as_processed(invoice_filename, f"REJECTED_{queue_name.upper()}", repo_root=root)
+    # Log rejection for audit trail
+    
+    # Log to processed_invoices.log for audit trail
+    additional_info = {
+        "exception_id": exception_id,
+        "routing_queue": queue_name,
+        "priority": priority,
+        "requires_manager_approval": queue_info["requires_manager_approval"],
+        "routing_reason": queue_info["routing_reason"]
+    }
+    _log_processed_invoice(invoice, "REJECTED", logs_dir, additional_info)
     
     actions.append(f"REJECTED → Routed to {queue_name} queue")
     return {
