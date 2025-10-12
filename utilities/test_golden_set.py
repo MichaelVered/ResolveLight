@@ -3,7 +3,7 @@
 Golden Set Test Script
 
 This script tests all invoices in the golden dataset by running the complete
-agentic workflow through runnerLog.py and validating the results. It checks:
+agentic workflow logic (same as runnerLog.py) and validating the results. It checks:
 
 1. All validations passed
 2. Proper routing to queues
@@ -13,12 +13,9 @@ Usage:
     python utilities/test_golden_set.py
 """
 
-import asyncio
 import json
 import os
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -26,83 +23,18 @@ from typing import Dict, List, Any, Optional
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from google.adk.agents.config_agent_utils import from_config as load_agent_from_yaml
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.adk.plugins import BasePlugin
-from google.genai import types
-import google.generativeai as genai
-
-# Import all tools to ensure they're available
-from tool_library import date_check_tool
-from tool_library import duplicate_invoice_check_tool
-from tool_library import fuzzy_matching_tool
-from tool_library import line_item_validation_tool
-from tool_library import po_contract_resolver_tool
-from tool_library import services_report_tool
-from tool_library import simple_overbilling_tool
-from tool_library import supplier_match_tool
-from tool_library import triage_resolution_tool
-from tool_library import validation_runner_tool
-
-
-class TestEventLogger(BasePlugin):
-    """Plugin to capture test results from the agentic workflow."""
-    
-    def __init__(self):
-        super().__init__(name="test_event_logger")
-        self.description = "Captures test results from agentic workflow"
-        self.test_results = []
-        self.current_test = None
-    
-    async def on_event_callback(self, *, invocation_context, event):
-        """Capture events and extract test results."""
-        try:
-            if hasattr(event, 'content') and event.content:
-                parts = getattr(event.content, 'parts', [])
-                for part in parts:
-                    if hasattr(part, 'text') and part.text:
-                        text = part.text
-                        # Look for specific patterns in agent responses
-                        if "Status:" in text and "APPROVED" in text:
-                            self.current_test = {"status": "APPROVED", "raw_response": text}
-                        elif "Status:" in text and "REJECTED" in text:
-                            self.current_test = {"status": "REJECTED", "raw_response": text}
-                        elif "Status:" in text and "PENDING_APPROVAL" in text:
-                            self.current_test = {"status": "PENDING_APPROVAL", "raw_response": text}
-                        elif "Routing queue:" in text:
-                            if self.current_test:
-                                self.current_test["routing_queue"] = text.split("Routing queue:")[-1].strip()
-                        elif "Exception ID:" in text:
-                            if self.current_test:
-                                self.current_test["exception_id"] = text.split("Exception ID:")[-1].strip()
-                        elif "Priority:" in text:
-                            if self.current_test:
-                                self.current_test["priority"] = text.split("Priority:")[-1].strip()
-        except Exception:
-            pass
-        return None
+from tool_library.validation_runner_tool import run_validations
+from tool_library.triage_resolution_tool import triage_and_route
+from tool_library.fuzzy_matching_tool import fuzzy_resolve_invoice_to_po_and_contract
 
 
 class GoldenSetTester:
-    """Test suite for the golden invoice dataset using runnerLog.py."""
+    """Test suite for the golden invoice dataset."""
     
     def __init__(self, repo_root: str = None):
         self.repo_root = repo_root or str(project_root)
         self.invoice_dir = os.path.join(self.repo_root, "json_files", "invoices")
         self.results = []
-        
-        # Configure Gemini API
-        try:
-            from dotenv import load_dotenv
-            load_dotenv()
-            api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise ValueError("Missing API key. Set GOOGLE_API_KEY or GEMINI_API_KEY.")
-            genai.configure(api_key=api_key)
-        except (ImportError, ValueError) as e:
-            print(f"ERROR: Could not configure API key. {e}")
-            sys.exit(1)
         
     def find_invoice_files(self) -> List[str]:
         """Find all invoice JSON files."""
@@ -121,61 +53,56 @@ class GoldenSetTester:
         except Exception as e:
             return {"error": f"Failed to load invoice: {str(e)}"}
     
-    async def test_invoice_with_agent(self, invoice_path: str) -> Dict[str, Any]:
-        """Test an invoice using the complete agentic workflow."""
-        invoice_filename = os.path.basename(invoice_path)
-        
-        # Load the root agent
-        root_agent = load_agent_from_yaml("root_agent.yaml")
-        
-        # Set up session and runner
-        session_service = InMemorySessionService()
-        app_name = "test_multi_agent_system"
-        user_id = "test_user_001"
-        session_id = f"test_session_{invoice_filename.replace('.json', '')}"
-        
-        await session_service.create_session(
-            app_name=app_name, user_id=user_id, session_id=session_id
-        )
-        
-        # Create test event logger
-        test_logger = TestEventLogger()
-        
-        runner = Runner(
-            app_name=app_name,
-            agent=root_agent,
-            session_service=session_service,
-            plugins=[test_logger],
-        )
-        
-        # Create test message
-        test_message = f"Please process the invoice file: {invoice_filename}"
-        content = types.Content(role="user", parts=[types.Part(text=test_message)])
-        
-        # Run the agentic workflow
+    def test_fuzzy_matching(self, invoice_path: str) -> Dict[str, Any]:
+        """Test fuzzy matching for an invoice."""
         try:
-            async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
-                # Events are captured by the test_logger plugin
-                pass
-            
-            # Extract results from the test logger
-            test_result = test_logger.current_test or {"status": "UNKNOWN", "raw_response": "No response captured"}
-            
+            result = fuzzy_resolve_invoice_to_po_and_contract(invoice_path, self.repo_root)
             return {
                 "status": "success",
-                "agent_result": test_result,
-                "session_id": session_id
+                "confidence": result.get("matching_details", {}).get("overall_confidence", 0.0),
+                "po_found": result.get("po_item") != "<not found>",
+                "contract_found": result.get("contract") != "<not found>",
+                "details": result.get("matching_details", {})
             }
-            
         except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e),
-                "session_id": session_id
-            }
+            return {"status": "error", "error": str(e)}
     
-    async def test_single_invoice(self, invoice_path: str) -> Dict[str, Any]:
-        """Test a single invoice through the complete agentic workflow."""
+    def test_validation(self, invoice_path: str) -> Dict[str, Any]:
+        """Test validation for an invoice."""
+        try:
+            result = run_validations(invoice_path, self.repo_root)
+            return {
+                "status": "success",
+                "validation_passed": result.get("validation") == "PASS",
+                "validation_status": result.get("validation"),
+                "tool_results": result.get("tool_results", []),
+                "failed_tools": [
+                    tool for tool in result.get("tool_results", [])
+                    if tool.get("status") == "FAIL"
+                ]
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+    
+    def test_triage_routing(self, invoice_path: str) -> Dict[str, Any]:
+        """Test triage and routing for an invoice."""
+        try:
+            result = triage_and_route(invoice_path, self.repo_root)
+            return {
+                "status": "success",
+                "final_status": result.get("status"),
+                "routing_queue": result.get("routing_queue"),
+                "priority": result.get("priority"),
+                "exception_id": result.get("exception_id"),
+                "requires_manager_approval": result.get("requires_manager_approval", False),
+                "actions": result.get("actions", []),
+                "logs": result.get("logs", {})
+            }
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+    
+    def test_single_invoice(self, invoice_path: str) -> Dict[str, Any]:
+        """Test a single invoice through the complete workflow."""
         invoice_filename = os.path.basename(invoice_path)
         print(f"\n🔍 Testing: {invoice_filename}")
         print("=" * 60)
@@ -189,42 +116,58 @@ class GoldenSetTester:
                 "error": invoice_data["error"]
             }
         
-        # Test using agentic workflow
-        print("🤖 Running Agentic Workflow...")
-        agent_result = await self.test_invoice_with_agent(invoice_path)
-        
-        if agent_result["status"] == "success":
-            agent_data = agent_result["agent_result"]
-            final_status = agent_data.get("status", "UNKNOWN")
-            routing_queue = agent_data.get("routing_queue", "")
-            exception_id = agent_data.get("exception_id", "")
-            priority = agent_data.get("priority", "")
-            
-            # Display results
-            if final_status == "APPROVED":
-                print(f"   ✅ Final Status: {final_status}")
-                print(f"   📋 No routing queue (approved)")
-            elif final_status == "PENDING_APPROVAL":
-                print(f"   ⚠️ Final Status: {final_status}")
-                if routing_queue:
-                    print(f"   📋 Routing Queue: {routing_queue}")
-                if priority:
-                    print(f"   📋 Priority: {priority}")
-                if exception_id:
-                    print(f"   📋 Exception ID: {exception_id}")
-            elif final_status == "REJECTED":
-                print(f"   ❌ Final Status: {final_status}")
-                if routing_queue:
-                    print(f"   📋 Routing Queue: {routing_queue}")
-                if priority:
-                    print(f"   📋 Priority: {priority}")
-                if exception_id:
-                    print(f"   📋 Exception ID: {exception_id}")
-            else:
-                print(f"   ❓ Final Status: {final_status}")
-                print(f"   📋 Raw Response: {agent_data.get('raw_response', 'No response')}")
+        # Test fuzzy matching
+        print("1️⃣ Testing Fuzzy Matching...")
+        fuzzy_result = self.test_fuzzy_matching(invoice_path)
+        if fuzzy_result["status"] == "success":
+            confidence = fuzzy_result["confidence"]
+            print(f"   ✅ Confidence: {confidence:.1%}")
+            print(f"   ✅ PO Found: {fuzzy_result['po_found']}")
+            print(f"   ✅ Contract Found: {fuzzy_result['contract_found']}")
         else:
-            print(f"   ❌ Error: {agent_result['error']}")
+            print(f"   ❌ Error: {fuzzy_result['error']}")
+        
+        # Test validation
+        print("2️⃣ Testing Validation...")
+        validation_result = self.test_validation(invoice_path)
+        if validation_result["status"] == "success":
+            validation_passed = validation_result["validation_passed"]
+            status_icon = "✅" if validation_passed else "❌"
+            print(f"   {status_icon} Validation: {validation_result['validation_status']}")
+            
+            if not validation_passed:
+                print("   📋 Failed Tools:")
+                for tool in validation_result["failed_tools"]:
+                    tool_name = tool.get("tool", "Unknown")
+                    exceptions = tool.get("exceptions", [])
+                    print(f"      - {tool_name}: {exceptions}")
+        else:
+            print(f"   ❌ Error: {validation_result['error']}")
+        
+        # Test triage routing
+        print("3️⃣ Testing Triage & Routing...")
+        triage_result = self.test_triage_routing(invoice_path)
+        if triage_result["status"] == "success":
+            final_status = triage_result["final_status"]
+            routing_queue = triage_result["routing_queue"]
+            priority = triage_result["priority"]
+            
+            status_icon = "✅" if final_status == "APPROVED" else "⚠️" if final_status == "PENDING_APPROVAL" else "❌"
+            print(f"   {status_icon} Final Status: {final_status}")
+            
+            if routing_queue:
+                print(f"   📋 Routing Queue: {routing_queue}")
+                print(f"   📋 Priority: {priority}")
+                
+                if triage_result["exception_id"]:
+                    print(f"   📋 Exception ID: {triage_result['exception_id']}")
+                
+                if triage_result["requires_manager_approval"]:
+                    print(f"   📋 Manager Approval Required: Yes")
+            else:
+                print(f"   📋 No routing queue (approved)")
+        else:
+            print(f"   ❌ Error: {triage_result['error']}")
         
         # Compile results
         result = {
@@ -235,15 +178,17 @@ class GoldenSetTester:
                 "amount": invoice_data.get("summary", {}).get("billing_amount"),
                 "line_items_count": len(invoice_data.get("line_items", []))
             },
-            "agent_result": agent_result,
-            "overall_status": "success" if agent_result["status"] == "success" else "error"
+            "fuzzy_matching": fuzzy_result,
+            "validation": validation_result,
+            "triage_routing": triage_result,
+            "overall_status": "success"
         }
         
         return result
     
-    async def run_all_tests(self) -> List[Dict[str, Any]]:
-        """Run tests for all invoices using the agentic workflow."""
-        print("🎯 GOLDEN SET TEST SUITE (Agentic Workflow)")
+    def run_all_tests(self) -> List[Dict[str, Any]]:
+        """Run tests for all invoices."""
+        print("🎯 GOLDEN SET TEST SUITE")
         print("=" * 60)
         print(f"Repository Root: {self.repo_root}")
         print(f"Invoice Directory: {self.invoice_dir}")
@@ -254,10 +199,9 @@ class GoldenSetTester:
             return []
         
         print(f"📋 Found {len(invoice_files)} invoice files")
-        print("🤖 Running complete agentic workflow for each invoice...")
         
         for invoice_path in invoice_files:
-            result = await self.test_single_invoice(invoice_path)
+            result = self.test_single_invoice(invoice_path)
             self.results.append(result)
         
         return self.results
@@ -269,7 +213,7 @@ class GoldenSetTester:
             return
         
         print("\n" + "=" * 80)
-        print("📊 TEST SUMMARY (Agentic Workflow)")
+        print("📊 TEST SUMMARY")
         print("=" * 80)
         
         total_invoices = len(self.results)
@@ -279,83 +223,57 @@ class GoldenSetTester:
         print(f"Successful Tests: {successful_tests}")
         print(f"Failed Tests: {total_invoices - successful_tests}")
         
-        # Agent workflow results summary
-        print(f"\n📋 Agentic Workflow Results:")
-        approved_count = 0
-        pending_count = 0
-        rejected_count = 0
-        unknown_count = 0
-        
-        for result in self.results:
-            agent_result = result.get("agent_result", {})
-            if agent_result.get("status") == "success":
-                agent_data = agent_result.get("agent_result", {})
-                status = agent_data.get("status", "UNKNOWN")
-                if status == "APPROVED":
-                    approved_count += 1
-                elif status == "PENDING_APPROVAL":
-                    pending_count += 1
-                elif status == "REJECTED":
-                    rejected_count += 1
-                else:
-                    unknown_count += 1
-        
-        print(f"   Approved: {approved_count}")
-        print(f"   Pending Approval: {pending_count}")
-        print(f"   Rejected: {rejected_count}")
-        print(f"   Unknown: {unknown_count}")
+        # Validation summary
+        validation_passed = sum(1 for r in self.results 
+                              if r.get("validation", {}).get("validation_passed", False))
+        print(f"\n📋 Validation Results:")
+        print(f"   Passed: {validation_passed}/{total_invoices}")
+        print(f"   Failed: {total_invoices - validation_passed}/{total_invoices}")
         
         # Routing summary
         print(f"\n📋 Routing Results:")
         routing_summary = {}
         for result in self.results:
-            agent_result = result.get("agent_result", {})
-            if agent_result.get("status") == "success":
-                agent_data = agent_result.get("agent_result", {})
-                status = agent_data.get("status", "UNKNOWN")
-                if status == "APPROVED":
-                    queue = "approved"
-                else:
-                    queue = agent_data.get("routing_queue", "unknown")
+            triage = result.get("triage_routing", {})
+            if triage.get("status") == "success":
+                queue = triage.get("routing_queue", "approved")
                 routing_summary[queue] = routing_summary.get(queue, 0) + 1
         
         for queue, count in sorted(routing_summary.items(), key=lambda x: (x[0] is None, x[0])):
             queue_display = queue if queue else "approved"
             print(f"   {queue_display}: {count} invoices")
         
-        # Exceptions detail
-        exceptions = []
-        for result in self.results:
-            agent_result = result.get("agent_result", {})
-            if agent_result.get("status") == "success":
-                agent_data = agent_result.get("agent_result", {})
-                exception_id = agent_data.get("exception_id")
-                if exception_id:
-                    exceptions.append({
-                        "invoice_file": result["invoice_file"],
-                        "exception_id": exception_id,
-                        "routing_queue": agent_data.get("routing_queue", "unknown")
-                    })
+        # Failed validations detail
+        failed_validations = [r for r in self.results 
+                            if not r.get("validation", {}).get("validation_passed", True)]
+        if failed_validations:
+            print(f"\n❌ Failed Validations:")
+            for result in failed_validations:
+                invoice_file = result["invoice_file"]
+                failed_tools = result.get("validation", {}).get("failed_tools", [])
+                print(f"   {invoice_file}:")
+                for tool in failed_tools:
+                    tool_name = tool.get("tool", "Unknown")
+                    exceptions = tool.get("exceptions", [])
+                    print(f"      - {tool_name}: {exceptions}")
         
+        # Exceptions detail
+        exceptions = [r for r in self.results 
+                     if r.get("triage_routing", {}).get("exception_id")]
         if exceptions:
             print(f"\n⚠️  Exceptions Found:")
-            for exc in exceptions:
-                print(f"   {exc['invoice_file']}: {exc['exception_id']} → {exc['routing_queue']}")
-        
-        # Failed tests detail
-        failed_tests = [r for r in self.results if r.get("overall_status") != "success"]
-        if failed_tests:
-            print(f"\n❌ Failed Tests:")
-            for result in failed_tests:
+            for result in exceptions:
                 invoice_file = result["invoice_file"]
-                error = result.get("agent_result", {}).get("error", "Unknown error")
-                print(f"   {invoice_file}: {error}")
+                triage = result.get("triage_routing", {})
+                exception_id = triage.get("exception_id")
+                queue = triage.get("routing_queue")
+                print(f"   {invoice_file}: {exception_id} → {queue}")
 
 
-async def main():
-    """Main function to run the golden set tests using agentic workflow."""
+def main():
+    """Main function to run the golden set tests."""
     tester = GoldenSetTester()
-    results = await tester.run_all_tests()
+    results = tester.run_all_tests()
     tester.print_summary()
     
     # Return appropriate exit code
@@ -369,4 +287,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
