@@ -30,6 +30,9 @@ import google.generativeai as genai
 # ----------------- Tool Imports -----------------
 # Import the modules containing your tool functions
 from tool_library import date_check_tool
+from tool_library import duplicate_invoice_check_tool
+from tool_library import fuzzy_matching_tool
+from tool_library import line_item_validation_tool
 from tool_library import po_contract_resolver_tool
 from tool_library import services_report_tool
 from tool_library import simple_overbilling_tool
