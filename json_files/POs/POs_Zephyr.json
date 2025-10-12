@@ -17,16 +17,16 @@
         {
           "item_id": "ZEP-001",
           "description": "Mobile foundation sprint",
-          "quantity": 36,
+          "quantity": 30,
           "unit_price": 150.00,
-          "line_total": 5400.00
+          "line_total": 4500.00
         },
         {
           "item_id": "ZEP-002",
-          "description": "Design system components",
-          "quantity": 8,
+          "description": "Design system and testing",
+          "quantity": 14,
           "unit_price": 150.00,
-          "line_total": 1200.00
+          "line_total": 2100.00
         }
       ]
     },

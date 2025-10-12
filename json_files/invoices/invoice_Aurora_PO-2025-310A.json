@@ -15,17 +15,10 @@
   "line_items": [
     {
       "item_id": "AUR-001",
-      "description": "Data labeling",
-      "quantity": 500,
-      "unit_price": 8.00,
-      "line_total": 4000.00
-    },
-    {
-      "item_id": "AUR-002",
-      "description": "Model training",
+      "description": "Complete ML model training and deployment",
       "quantity": 1,
-      "unit_price": 3500.00,
-      "line_total": 3500.00
+      "unit_price": 7500.00,
+      "line_total": 7500.00
     }
   ],
   "summary": {

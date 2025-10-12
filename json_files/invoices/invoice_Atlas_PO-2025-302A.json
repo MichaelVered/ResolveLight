@@ -16,13 +16,20 @@
     {
       "item_id": "ATL-001",
       "description": "Event ingestion setup",
-      "quantity": 40,
+      "quantity": 25,
       "unit_price": 150.00,
-      "line_total": 6000.00
+      "line_total": 3750.00
     },
     {
       "item_id": "ATL-002",
       "description": "Streaming connector configuration",
+      "quantity": 15,
+      "unit_price": 150.00,
+      "line_total": 2250.00
+    },
+    {
+      "item_id": "ATL-003",
+      "description": "Data pipeline optimization",
       "quantity": 12,
       "unit_price": 150.00,
       "line_total": 1800.00

@@ -17,16 +17,23 @@
         {
           "item_id": "VOR-001",
           "description": "Federated GraphQL setup",
-          "quantity": 34,
+          "quantity": 25,
           "unit_price": 150.00,
-          "line_total": 5100.00
+          "line_total": 3750.00
         },
         {
           "item_id": "VOR-002",
           "description": "Rate limiting policies",
-          "quantity": 8,
+          "quantity": 10,
           "unit_price": 150.00,
-          "line_total": 1200.00
+          "line_total": 1500.00
+        },
+        {
+          "item_id": "VOR-003",
+          "description": "API gateway configuration",
+          "quantity": 7,
+          "unit_price": 150.00,
+          "line_total": 1050.00
         }
       ]
     },

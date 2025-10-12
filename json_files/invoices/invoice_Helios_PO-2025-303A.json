@@ -16,16 +16,16 @@
     {
       "item_id": "HEL-001",
       "description": "Service decomposition planning",
-      "quantity": 32,
+      "quantity": 25,
       "unit_price": 150.00,
-      "line_total": 4800.00
+      "line_total": 3750.00
     },
     {
       "item_id": "HEL-002",
       "description": "Database redesign workshop",
-      "quantity": 8,
+      "quantity": 15,
       "unit_price": 150.00,
-      "line_total": 1200.00
+      "line_total": 2250.00
     }
   ],
   "summary": {

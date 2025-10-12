@@ -16,16 +16,23 @@
     {
       "item_id": "DEL-001",
       "description": "Data platform ingestion",
-      "quantity": 34,
+      "quantity": 25,
       "unit_price": 150.00,
-      "line_total": 5100.00
+      "line_total": 3750.00
     },
     {
       "item_id": "DEL-002",
       "description": "Quality checks setup",
-      "quantity": 10,
+      "quantity": 12,
       "unit_price": 150.00,
-      "line_total": 1500.00
+      "line_total": 1800.00
+    },
+    {
+      "item_id": "DEL-003",
+      "description": "Data validation framework",
+      "quantity": 7,
+      "unit_price": 150.00,
+      "line_total": 1050.00
     }
   ],
   "summary": {

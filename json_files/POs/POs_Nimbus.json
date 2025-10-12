@@ -17,16 +17,16 @@
         {
           "item_id": "NIM-001",
           "description": "GitOps enablement",
-          "quantity": 35,
+          "quantity": 30,
           "unit_price": 150.00,
-          "line_total": 5250.00
+          "line_total": 4500.00
         },
         {
           "item_id": "NIM-002",
           "description": "Cluster hardening",
-          "quantity": 9,
+          "quantity": 14,
           "unit_price": 150.00,
-          "line_total": 1350.00
+          "line_total": 2100.00
         }
       ]
     },

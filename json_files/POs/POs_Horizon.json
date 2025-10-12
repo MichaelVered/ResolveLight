@@ -17,16 +17,16 @@
         {
           "item_id": "HOR-001",
           "description": "Feature flag rollout",
-          "quantity": 30,
+          "quantity": 25,
           "unit_price": 150.00,
-          "line_total": 4500.00
+          "line_total": 3750.00
         },
         {
           "item_id": "HOR-002",
           "description": "Experimentation framework setup",
-          "quantity": 10,
+          "quantity": 15,
           "unit_price": 150.00,
-          "line_total": 1500.00
+          "line_total": 2250.00
         }
       ]
     },

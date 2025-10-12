@@ -1,0 +1,27 @@
+{
+  "purchase_orders": [
+    {
+      "po_number": "PO-2025-NEX-001",
+      "contract_id": "CON-AI-2025-009",
+      "status": "ACTIVE",
+      "description": "Advanced AI Model Consultation for Project Nexus.",
+      "total_value": 15000.00,
+      "cost_center": "PROJ-NEX-AI",
+      "requester": "brenda@globalinnovations.corp",
+      "effective_date": "2025-10-25",
+      "issue_date": "2025-10-25",
+      "payment_terms": "Net 30",
+      "currency": "USD",
+      "approver": "finance.approver@globalinnovations.corp",
+      "line_items": [
+        {
+          "item_id": "NEX-CONS-001",
+          "description": "Advanced AI Model Consultation",
+          "quantity": 30,
+          "unit_price": 400.00,
+          "line_total": 12000.00
+        }
+      ]
+    }
+  ]
+}

@@ -27,6 +27,13 @@
           "quantity": 10,
           "unit_price": 150.00,
           "line_total": 1500.00
+        },
+        {
+          "item_id": "ORI-003",
+          "description": "API documentation and testing",
+          "quantity": 8,
+          "unit_price": 150.00,
+          "line_total": 1200.00
         }
       ]
     },

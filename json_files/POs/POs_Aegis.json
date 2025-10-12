@@ -16,17 +16,10 @@
       "line_items": [
         {
           "item_id": "AEG-001",
-          "description": "SSO discovery and design",
-          "quantity": 28,
+          "description": "SSO and MFA foundation implementation",
+          "quantity": 40,
           "unit_price": 150.00,
-          "line_total": 4200.00
-        },
-        {
-          "item_id": "AEG-002",
-          "description": "MFA integration spike",
-          "quantity": 12,
-          "unit_price": 150.00,
-          "line_total": 1800.00
+          "line_total": 6000.00
         }
       ]
     },
