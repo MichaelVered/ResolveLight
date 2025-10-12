@@ -6,12 +6,13 @@ This folder contains utility scripts for testing and maintenance of the ResolveL
 
 ### `test_golden_set.py`
 
-A comprehensive test suite that validates the entire agentic workflow against the golden dataset.
+A comprehensive test suite that validates the entire agentic workflow against the golden dataset using the complete runnerLog.py architecture.
 
 **Purpose:**
 - Tests all invoices in the golden dataset through the complete agentic workflow
-- Validates fuzzy matching, validation, and triage routing
-- Provides detailed reporting on test results
+- Uses the actual ADK agents, runners, and sessions (same as runnerLog.py)
+- Validates end-to-end user experience instead of individual tools
+- Provides detailed reporting on agentic workflow results
 
 **Usage:**
 ```bash
@@ -19,47 +20,53 @@ python utilities/test_golden_set.py
 ```
 
 **What it tests:**
-1. **Fuzzy Matching**: PO and contract resolution with confidence scores
-2. **Validation**: All validation tools (supplier, billing, dates, line items, duplicates)
-3. **Triage & Routing**: Final routing decisions and queue assignments
+1. **Complete Agentic Workflow**: Full end-to-end process through ADK agents
+2. **Agent Responses**: Captures actual agent status, routing, and exception decisions
+3. **Real User Experience**: Tests the same workflow users would experience
+4. **Event Logging**: Uses TestEventLogger plugin to capture agent responses
 
-**Output:**
-- Per-invoice detailed results
-- Summary statistics
-- Exception tracking
-- Queue routing analysis
+**Technical Architecture:**
+- Uses Google ADK (agents, runners, sessions, plugins)
+- Integrates with runnerLog.py architecture
+- Async/await pattern for proper agentic workflow execution
+- Real-time event capture and result parsing
 
 **Example Output:**
 ```
-🎯 GOLDEN SET TEST SUITE
+🎯 GOLDEN SET TEST SUITE (Agentic Workflow)
 ============================================================
 📋 Found 11 invoice files
+🤖 Running complete agentic workflow for each invoice...
 
 🔍 Testing: invoice_Aegis_PO-2025-304A.json
 ============================================================
-1️⃣ Testing Fuzzy Matching...
-   ✅ Confidence: 100.0%
-   ✅ PO Found: True
-   ✅ Contract Found: True
-2️⃣ Testing Validation...
-   ✅ Validation: PASS
-3️⃣ Testing Triage & Routing...
+🤖 Running Agentic Workflow...
    ✅ Final Status: APPROVED
    📋 No routing queue (approved)
 
-📊 TEST SUMMARY
+🔍 Testing: invoice_Nexus_PO-2025-NEX-001.json
+============================================================
+🤖 Running Agentic Workflow...
+   ⚠️ Final Status: PENDING_APPROVAL
+   📋 Routing Queue: high_value_approval
+   📋 Priority: high
+   📋 Exception ID: EXC-C7E8E2D996E0
+
+📊 TEST SUMMARY (Agentic Workflow)
 ================================================================================
 Total Invoices Tested: 11
 Successful Tests: 11
 Failed Tests: 0
 
-📋 Validation Results:
-   Passed: 11/11
-   Failed: 0/11
+📋 Agentic Workflow Results:
+   Approved: 10
+   Pending Approval: 1
+   Rejected: 0
+   Unknown: 0
 
 📋 Routing Results:
-   high_value_approval: 1 invoices
    approved: 10 invoices
+   high_value_approval: 1 invoices
 
 ⚠️  Exceptions Found:
    invoice_Nexus_PO-2025-NEX-001.json: EXC-C7E8E2D996E0 → high_value_approval
@@ -72,14 +79,22 @@ Failed Tests: 0
 - `1`: One or more tests failed
 
 **Key Features:**
-- **Comprehensive Coverage**: Tests all components of the agentic workflow
-- **Detailed Reporting**: Shows exactly what passed/failed and why
-- **Exception Tracking**: Identifies invoices that require manual review
-- **Queue Analysis**: Shows routing distribution across different queues
-- **Golden Dataset Validation**: Ensures the synthetic data works correctly
+- **End-to-End Testing**: Tests complete agentic workflow as users experience it
+- **Real Agent Responses**: Captures actual agent decisions and routing
+- **Event-Driven Architecture**: Uses ADK plugins for real-time result capture
+- **Comprehensive Reporting**: Shows agentic workflow results and routing decisions
+- **Golden Dataset Validation**: Ensures synthetic data works with agentic workflow
+
+**Benefits over Direct Tool Testing:**
+- Tests the actual user experience (agentic workflow)
+- Validates complete end-to-end process
+- Captures real agent responses and routing decisions
+- More realistic testing than direct tool calls
+- Tests agent prompts and tool orchestration
 
 This script is essential for:
 - Validating changes to the agentic workflow
-- Ensuring the golden dataset remains consistent
-- Identifying regressions in validation logic
-- Monitoring the health of the entire system
+- Ensuring the golden dataset works with agents
+- Testing agent prompts and tool orchestration
+- Monitoring the health of the complete system
+- Validating end-to-end user experience
