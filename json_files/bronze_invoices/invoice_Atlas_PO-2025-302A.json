@@ -6,8 +6,8 @@
   "payment_terms": "Net 30",
   "currency": "USD",
   "supplier_info": {
-    "name": "Fake Supplier Corp",
-    "vendor_id": "V-FAKE-999",
+    "name": "Organizing Supplier Corp",
+    "vendor_id": "V-FAKE-999"
   },
   "bill_to_info": {
     "name": "Global Innovations Corp."

@@ -16,7 +16,7 @@
   "line_items": [
     {
       "item_id": "NEX-CONS-001",
-      "description": "INVALID SERVICE - SUSPICIOUS ACTIVITY",
+      "description": "Training and consulting",
       "quantity": 30,
       "unit_price": 400.00,
       "line_total": 12000.00

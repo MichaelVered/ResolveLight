@@ -17,7 +17,7 @@
     {
       "item_id": "NEX-CONS-001",
       "description": "Advanced AI Model Consultation",
-      "quantity": -5,
+      "quantity": 5,
       "unit_price": 400.00,
       "line_total": 12000.00
     }

@@ -17,13 +17,13 @@
       "item_id": "AUR-001",
       "description": "Complete ML model training and deployment",
       "quantity": 1,
-      "unit_price": 999999.00,
-      "line_total": 999999.00
+      "unit_price": 9500.00,
+      "line_total": 9500.00
     }
   ],
   "summary": {
-    "subtotal": 999999.00,
+    "subtotal": 9500.00,
     "tax_amount": 0.00,
-    "billing_amount": 999999.00
+    "billing_amount": 9500.00
   }
 }

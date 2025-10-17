@@ -7,6 +7,9 @@ from .date_check_tool import validate_dates
 from .simple_overbilling_tool import validate_billing
 from .po_contract_resolver_tool import resolve_invoice_to_po_and_contract
 from .line_item_validation_tool import validate_line_items
+from .currency_validation_tool import validate_currency
+from .payment_terms_validation_tool import validate_payment_terms
+from .content_validation_tool import validate_content
 
 
 def run_validations(invoice_filename: str, repo_root: str | None = None) -> Dict[str, Any]:
@@ -48,6 +51,9 @@ def run_validations(invoice_filename: str, repo_root: str | None = None) -> Dict
     results.append(validate_billing(invoice, po_item))
     results.append(validate_dates(invoice, contract, po_item))
     results.append(validate_line_items(invoice, po_item))
+    results.append(validate_currency(invoice, contract))
+    results.append(validate_payment_terms(invoice, contract))
+    results.append(validate_content(invoice, po_item))
 
     all_pass = all(r.get("status") == "PASS" for r in results)
 

@@ -91,18 +91,16 @@ ResolveLight/
 │   ├── fuzzy_matching_tool.py     # Enhanced PO/contract resolution
 │   ├── validation_runner_tool.py   # Orchestrates validation
 │   ├── line_item_validation_tool.py # Flexible line item validation
-│   ├── duplicate_invoice_check_tool.py # Stateful duplicate detection
 │   ├── supplier_match_tool.py     # Supplier validation
 │   ├── simple_overbilling_tool.py  # Billing amount validation
 │   └── date_check_tool.py         # Date validation
 ├── 📁 json_files/                 # Sample data
-│   ├── invoices/                  # Invoice JSON files
+│   ├── golden_invoices/           # Golden dataset invoice JSON files
 │   ├── POs/                       # Purchase order files
 │   └── contracts/                 # Contract files
 ├── 📁 system_logs/                # Generated logs
 │   ├── payments.log               # Approved payments
-│   ├── exceptions_ledger.log       # Exception tracking
-│   └── queue_*.log                # Queue-specific logs
+│   └── exceptions_ledger.log       # Exception tracking
 ├── root_agent.yaml               # Main workflow configuration
 ├── runner.py                     # System entry point
 └── README.md                     # This file
@@ -164,14 +162,13 @@ ResolveLight/
 - PO number match: +10%
 
 ### 4. Validation Runner Tool
-**Purpose**: Orchestrates comprehensive validation across 5 tools
+**Purpose**: Orchestrates comprehensive validation across 4 tools
 
 **Validation Tools**:
-1. `duplicate_invoice_check_tool` - Duplicate detection
-2. `line_item_validation_tool` - Line item validation
-3. `supplier_match_tool` - Supplier information matching
-4. `simple_overbilling_tool` - Billing amount validation
-5. `date_check_tool` - Date and payment terms validation
+1. `line_item_validation_tool` - Line item validation
+2. `supplier_match_tool` - Supplier information matching
+3. `simple_overbilling_tool` - Billing amount validation
+4. `date_check_tool` - Date and payment terms validation
 
 ## 🎯 Routing System
 
@@ -209,7 +206,7 @@ from tool_library.validation_runner_tool import run_validations
 from tool_library.triage_resolution_tool import triage_and_route
 
 # Process an invoice
-invoice_filename = "json_files/invoices/invoice_Aegis_PO-2025-304A.json"
+invoice_filename = "json_files/golden_invoices/invoice_Aegis_PO-2025-304A.json"
 
 # Step 1: Fuzzy matching
 resolution = fuzzy_resolve_invoice_to_po_and_contract(invoice_filename)
@@ -326,8 +323,6 @@ Agents are configured via YAML files in `sub_agents/`:
 ### Log Files
 - **payments.log**: Approved payments and line items
 - **exceptions_ledger.log**: Exception tracking and audit trails
-- **queue_*.log**: Queue-specific context for reviewers
-- **processed_invoices.log**: Duplicate detection history
 
 ### Monitoring
 - Real-time processing status

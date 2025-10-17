@@ -17,7 +17,7 @@
       "item_id": "NIM-001",
       "description": "GitOps enablement",
       "quantity": 30,
-      "unit_price": -100.00,
+      "unit_price": 100.00,
       "line_total": 4500.00
     },
     {
