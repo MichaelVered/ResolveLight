@@ -1,0 +1,10 @@
+# Learning Agent Dependencies
+flask>=2.3.0
+google-generativeai>=0.3.0
+python-dotenv>=1.0.0
+
+# Optional: For enhanced JSON handling
+jsonschema>=4.0.0
+
+# Optional: For better error handling
+colorama>=0.4.0

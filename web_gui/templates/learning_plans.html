@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Learning Plans - Learning Agent{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-lightbulb"></i> Learning Plans</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-filter"></i> Filter by Status
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('learning_plans') }}">All</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('learning_plans', status='draft') }}">Draft</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('learning_plans', status='approved') }}">Approved</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('learning_plans', status='rejected') }}">Rejected</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+{% if current_filter %}
+<div class="alert alert-info">
+    <i class="fas fa-info-circle"></i> Showing plans with status: <strong>{{ current_filter }}</strong>
+    <a href="{{ url_for('learning_plans') }}" class="btn btn-sm btn-outline-info ms-2">Clear Filter</a>
+</div>
+{% endif %}
+
+{% if plans %}
+    <div class="row">
+        {% for plan in plans %}
+        <div class="col-lg-6 mb-4">
+            <div class="card learning-plan-card {{ plan.priority }}-priority h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{{ plan.title }}</h6>
+                    <div>
+                        <span class="badge bg-{{ 'success' if plan.status == 'approved' else 'warning' if plan.status == 'draft' else 'danger' if plan.status == 'rejected' else 'secondary' }}">
+                            {{ plan.status }}
+                        </span>
+                        <span class="badge bg-{{ 'danger' if plan.priority == 'critical' else 'warning' if plan.priority == 'high' else 'info' if plan.priority == 'medium' else 'success' }}">
+                            {{ plan.priority }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ plan.description[:200] }}{% if plan.description|length > 200 %}...{% endif %}</p>
+                    
+                    <div class="mb-3">
+                        <strong>Type:</strong> {{ plan.plan_type }}<br>
+                        <strong>Created:</strong> {{ plan.created_at|datetime_format }}<br>
+                        {% if plan.approved_by %}
+                        <strong>Approved by:</strong> {{ plan.approved_by }}<br>
+                        {% endif %}
+                    </div>
+                    
+                    {% if plan.impact_analysis %}
+                    <div class="mb-3">
+                        <h6>Impact Analysis:</h6>
+                        <ul class="list-unstyled">
+                            {% if plan.impact_analysis.affected_invoices %}
+                            <li><i class="fas fa-file-invoice text-primary"></i> Affected Invoices: {{ plan.impact_analysis.affected_invoices }}</li>
+                            {% endif %}
+                            {% if plan.impact_analysis.improvement_expected %}
+                            <li><i class="fas fa-chart-line text-success"></i> Expected Improvement: {{ plan.impact_analysis.improvement_expected }}</li>
+                            {% endif %}
+                            {% if plan.impact_analysis.risk_level %}
+                            <li><i class="fas fa-exclamation-triangle text-warning"></i> Risk Level: {{ plan.impact_analysis.risk_level }}</li>
+                            {% endif %}
+                            {% if plan.impact_analysis.implementation_effort %}
+                            <li><i class="fas fa-cogs text-info"></i> Implementation Effort: {{ plan.impact_analysis.implementation_effort }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('learning_plan_detail', plan_id=plan.id) }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-eye"></i> View Details
+                        </a>
+                        <div>
+                            {% if plan.status == 'draft' %}
+                            <button class="btn btn-success btn-sm me-2" onclick="approvePlan({{ plan.id }})">
+                                <i class="fas fa-check"></i> Approve
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="rejectPlan({{ plan.id }})">
+                                <i class="fas fa-times"></i> Reject
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-lightbulb fa-4x text-muted mb-4"></i>
+        <h3 class="text-muted">No Learning Plans Found</h3>
+        <p class="text-muted">
+            {% if current_filter %}
+                No learning plans found with status "{{ current_filter }}".
+            {% else %}
+                No learning plans have been generated yet. Run the learning agent to analyze system logs and generate optimization plans.
+            {% endif %}
+        </p>
+        {% if not current_filter %}
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+            <i class="fas fa-tachometer-alt"></i> Go to Dashboard
+        </a>
+        {% endif %}
+    </div>
+{% endif %}
+
+<!-- Approval Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Approve Learning Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="approveForm" method="POST">
+                <div class="modal-body">
+                    <p>Are you sure you want to approve this learning plan?</p>
+                    <div class="mb-3">
+                        <label for="expert_name" class="form-label">Your Name (Expert)</label>
+                        <input type="text" class="form-control" id="expert_name" name="expert_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Approve Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Rejection Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reject Learning Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="rejectForm" method="POST">
+                <div class="modal-body">
+                    <p>Are you sure you want to reject this learning plan?</p>
+                    <div class="mb-3">
+                        <label for="rejection_reason" class="form-label">Reason for Rejection</label>
+                        <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function approvePlan(planId) {
+    const form = document.getElementById('approveForm');
+    form.action = `/learning_plans/${planId}/approve`;
+    const modal = new bootstrap.Modal(document.getElementById('approveModal'));
+    modal.show();
+}
+
+function rejectPlan(planId) {
+    const form = document.getElementById('rejectForm');
+    form.action = `/learning_plans/${planId}/reject`;
+    const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

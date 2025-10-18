@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Human Feedback - Learning Agent{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-comments"></i> Human Feedback</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback Form -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Submit New Feedback</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('submit_feedback') }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="invoice_id" class="form-label">Invoice ID *</label>
+                                <input type="text" class="form-control" id="invoice_id" name="invoice_id" required>
+                                <div class="form-text">The invoice ID that was processed incorrectly</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expert_name" class="form-label">Your Name (Expert) *</label>
+                                <input type="text" class="form-control" id="expert_name" name="expert_name" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="original_decision" class="form-label">Agent's Original Decision *</label>
+                                <select class="form-select" id="original_decision" name="original_decision" required>
+                                    <option value="">Select decision...</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="human_correction" class="form-label">Your Correction *</label>
+                                <select class="form-select" id="human_correction" name="human_correction" required>
+                                    <option value="">Select correction...</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="routing_queue" class="form-label">Routing Queue (if rejected)</label>
+                                <select class="form-select" id="routing_queue" name="routing_queue">
+                                    <option value="">Select queue...</option>
+                                    <option value="missing_data">Missing Data</option>
+                                    <option value="low_confidence_matches">Low Confidence Matches</option>
+                                    <option value="price_discrepancies">Price Discrepancies</option>
+                                    <option value="supplier_mismatch">Supplier Mismatch</option>
+                                    <option value="billing_discrepancies">Billing Discrepancies</option>
+                                    <option value="date_discrepancies">Date Discrepancies</option>
+                                    <option value="high_value_approval">High Value Approval</option>
+                                    <option value="general_exceptions">General Exceptions</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="feedback_type" class="form-label">Feedback Type *</label>
+                                <select class="form-select" id="feedback_type" name="feedback_type" required>
+                                    <option value="">Select type...</option>
+                                    <option value="routing_correction">Routing Correction</option>
+                                    <option value="validation_override">Validation Override</option>
+                                    <option value="business_rule">Business Rule</option>
+                                    <option value="data_quality">Data Quality Issue</option>
+                                    <option value="false_positive">False Positive</option>
+                                    <option value="false_negative">False Negative</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="feedback_text" class="form-label">Detailed Feedback *</label>
+                        <textarea class="form-control" id="feedback_text" name="feedback_text" rows="4" required 
+                                  placeholder="Please provide detailed feedback about why the agent's decision was incorrect and what the correct decision should be..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="additional_notes" class="form-label">Additional Notes</label>
+                        <textarea class="form-control" id="additional_notes" name="additional_notes" rows="2" 
+                                  placeholder="Any additional context or supporting information..."></textarea>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-outline-secondary me-md-2">Clear Form</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Submit Feedback
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Learning Records for Context -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-clipboard-list"></i> Recent Learning Records (for context)</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_records %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Source</th>
+                                    <th>Learning Opportunity</th>
+                                    <th>Confidence</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in recent_records %}
+                                <tr>
+                                    <td>{{ record.id }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ record.source_type }}</span>
+                                        <br>
+                                        <small class="text-muted">{{ record.source_file }}</small>
+                                    </td>
+                                    <td>{{ record.learning_opportunity[:100] }}{% if record.learning_opportunity|length > 100 %}...{% endif %}</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ record.confidence_score * 100 }}%">
+                                                {{ (record.confidence_score * 100)|round(1) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if record.status == 'analyzed' else 'warning' if record.status == 'pending' else 'secondary' }}">
+                                            {{ record.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ record.created_at|datetime_format }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="useRecordAsContext({{ record.id }}, '{{ record.learning_opportunity }}')">
+                                            <i class="fas fa-eye"></i> Use as Context
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-clipboard-list fa-3x mb-3"></i>
+                        <p>No learning records found. Run the learning agent to analyze system logs.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function useRecordAsContext(recordId, learningOpportunity) {
+    // Pre-fill the feedback form with context from the learning record
+    const feedbackText = document.getElementById('feedback_text');
+    const currentText = feedbackText.value;
+    
+    if (currentText) {
+        feedbackText.value = currentText + '\n\n--- Context from Learning Record ---\n' + learningOpportunity;
+    } else {
+        feedbackText.value = '--- Context from Learning Record ---\n' + learningOpportunity;
+    }
+    
+    // Scroll to the feedback form
+    feedbackText.scrollIntoView({ behavior: 'smooth' });
+    feedbackText.focus();
+}
+
+// Auto-fill invoice ID from URL parameters if available
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const invoiceId = urlParams.get('invoice_id');
+    if (invoiceId) {
+        document.getElementById('invoice_id').value = invoiceId;
+    }
+});
+</script>
+{% endblock %}

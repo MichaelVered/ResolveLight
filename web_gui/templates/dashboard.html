@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Learning Agent{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Learning Records
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.learning_records }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Learning Plans
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.learning_plans }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-lightbulb fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Human Feedback
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.human_feedback }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-comments fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Approved Plans
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.approved_plans }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Learning Plans -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Learning Plans</h6>
+                <a href="{{ url_for('learning_plans') }}" class="btn btn-sm btn-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_plans %}
+                    {% for plan in recent_plans %}
+                    <div class="card learning-plan-card {{ plan.priority }}-priority mb-3">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6 class="card-title">{{ plan.title }}</h6>
+                                    <p class="card-text text-muted">{{ plan.description[:200] }}{% if plan.description|length > 200 %}...{% endif %}</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-tag"></i> {{ plan.plan_type }} | 
+                                        <i class="fas fa-flag"></i> {{ plan.priority }} | 
+                                        <i class="fas fa-clock"></i> {{ plan.created_at|datetime_format }}
+                                    </small>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <span class="badge bg-{{ 'success' if plan.status == 'approved' else 'warning' if plan.status == 'draft' else 'danger' if plan.status == 'rejected' else 'secondary' }}">
+                                        {{ plan.status }}
+                                    </span>
+                                    <br>
+                                    <a href="{{ url_for('learning_plan_detail', plan_id=plan.id) }}" class="btn btn-sm btn-outline-primary mt-2">
+                                        <i class="fas fa-eye"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-lightbulb fa-3x mb-3"></i>
+                        <p>No learning plans found. Run the learning agent to generate plans.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Learning Records -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Learning Records</h6>
+                <a href="{{ url_for('learning_records') }}" class="btn btn-sm btn-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_records %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Learning Opportunity</th>
+                                    <th>Confidence</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in recent_records %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-info">{{ record.source_type }}</span>
+                                        <br>
+                                        <small class="text-muted">{{ record.source_file }}</small>
+                                    </td>
+                                    <td>{{ record.learning_opportunity[:100] }}{% if record.learning_opportunity|length > 100 %}...{% endif %}</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ record.confidence_score * 100 }}%">
+                                                {{ (record.confidence_score * 100)|round(1) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if record.status == 'analyzed' else 'warning' if record.status == 'pending' else 'secondary' }}">
+                                            {{ record.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ record.created_at|datetime_format }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-clipboard-list fa-3x mb-3"></i>
+                        <p>No learning records found. Run the learning agent to analyze logs.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Human Feedback -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Human Feedback</h6>
+                <a href="{{ url_for('feedback') }}" class="btn btn-sm btn-primary">Add Feedback</a>
+            </div>
+            <div class="card-body">
+                {% if recent_feedback %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Invoice ID</th>
+                                    <th>Original Decision</th>
+                                    <th>Human Correction</th>
+                                    <th>Expert</th>
+                                    <th>Type</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for feedback in recent_feedback %}
+                                <tr>
+                                    <td>{{ feedback.invoice_id }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if feedback.original_agent_decision == 'REJECTED' else 'success' if feedback.original_agent_decision == 'APPROVED' else 'warning' }}">
+                                            {{ feedback.original_agent_decision }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if feedback.human_correction == 'APPROVED' else 'danger' if feedback.human_correction == 'REJECTED' else 'warning' }}">
+                                            {{ feedback.human_correction }}
+                                        </span>
+                                    </td>
+                                    <td>{{ feedback.expert_name or 'Unknown' }}</td>
+                                    <td>{{ feedback.feedback_type or 'N/A' }}</td>
+                                    <td>{{ feedback.created_at|datetime_format }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-comments fa-3x mb-3"></i>
+                        <p>No human feedback found. Add feedback to help improve the system.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

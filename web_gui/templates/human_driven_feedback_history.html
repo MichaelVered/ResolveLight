@@ -1,0 +1,71 @@
+{% extends "human_driven_base.html" %}
+
+{% block title %}Feedback History - Human-Driven Learning{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-history"></i> Feedback History</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('feedback') }}" class="btn btn-sm btn-primary">
+                <i class="fas fa-plus"></i> Add New Feedback
+            </a>
+        </div>
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+{% if feedback_items %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Invoice ID</th>
+                    <th>Original Decision</th>
+                    <th>Expert Correction</th>
+                    <th>Expert</th>
+                    <th>Type</th>
+                    <th>Feedback</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feedback in feedback_items %}
+                <tr>
+                    <td>{{ feedback.id }}</td>
+                    <td>{{ feedback.invoice_id }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'danger' if feedback.original_agent_decision == 'REJECTED' else 'success' if feedback.original_agent_decision == 'APPROVED' else 'warning' }}">
+                            {{ feedback.original_agent_decision }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if feedback.human_correction == 'APPROVED' else 'danger' if feedback.human_correction == 'REJECTED' else 'warning' }}">
+                            {{ feedback.human_correction }}
+                        </span>
+                    </td>
+                    <td>{{ feedback.expert_name or 'Unknown' }}</td>
+                    <td>{{ feedback.feedback_type or 'N/A' }}</td>
+                    <td>{{ feedback.feedback_text[:100] }}{% if feedback.feedback_text|length > 100 %}...{% endif %}</td>
+                    <td>{{ feedback.created_at|datetime_format }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-history fa-4x text-muted mb-4"></i>
+        <h3 class="text-muted">No Feedback History Found</h3>
+        <p class="text-muted">No expert feedback has been submitted yet.</p>
+        <a href="{{ url_for('feedback') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add First Feedback
+        </a>
+    </div>
+{% endif %}
+{% endblock %}

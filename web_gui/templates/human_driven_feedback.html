@@ -1,0 +1,191 @@
+{% extends "human_driven_base.html" %}
+
+{% block title %}Expert Feedback - Human-Driven Learning{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-comments"></i> Expert Feedback</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('feedback_history') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-history"></i> View History
+            </a>
+        </div>
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback Form -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Submit Expert Feedback</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('submit_feedback') }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="invoice_id" class="form-label">Invoice ID *</label>
+                                <input type="text" class="form-control" id="invoice_id" name="invoice_id" required>
+                                <div class="form-text">The invoice ID that was processed incorrectly</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expert_name" class="form-label">Your Name (Expert) *</label>
+                                <input type="text" class="form-control" id="expert_name" name="expert_name" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="original_decision" class="form-label">Agent's Original Decision *</label>
+                                <select class="form-select" id="original_decision" name="original_decision" required>
+                                    <option value="">Select decision...</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="human_correction" class="form-label">Your Correction *</label>
+                                <select class="form-select" id="human_correction" name="human_correction" required>
+                                    <option value="">Select correction...</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="routing_queue" class="form-label">Routing Queue (if rejected)</label>
+                                <select class="form-select" id="routing_queue" name="routing_queue">
+                                    <option value="">Select queue...</option>
+                                    <option value="missing_data">Missing Data</option>
+                                    <option value="low_confidence_matches">Low Confidence Matches</option>
+                                    <option value="price_discrepancies">Price Discrepancies</option>
+                                    <option value="supplier_mismatch">Supplier Mismatch</option>
+                                    <option value="billing_discrepancies">Billing Discrepancies</option>
+                                    <option value="date_discrepancies">Date Discrepancies</option>
+                                    <option value="high_value_approval">High Value Approval</option>
+                                    <option value="general_exceptions">General Exceptions</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="feedback_type" class="form-label">Feedback Type *</label>
+                                <select class="form-select" id="feedback_type" name="feedback_type" required>
+                                    <option value="">Select type...</option>
+                                    <option value="routing_correction">Routing Correction</option>
+                                    <option value="validation_override">Validation Override</option>
+                                    <option value="business_rule">Business Rule</option>
+                                    <option value="data_quality">Data Quality Issue</option>
+                                    <option value="false_positive">False Positive</option>
+                                    <option value="false_negative">False Negative</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="feedback_text" class="form-label">Detailed Feedback *</label>
+                        <textarea class="form-control" id="feedback_text" name="feedback_text" rows="4" required 
+                                  placeholder="Please provide detailed feedback about why the agent's decision was incorrect and what the correct decision should be..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="additional_notes" class="form-label">Additional Notes</label>
+                        <textarea class="form-control" id="additional_notes" name="additional_notes" rows="2" 
+                                  placeholder="Any additional context or supporting information..."></textarea>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-outline-secondary me-md-2">Clear Form</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Submit Feedback
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Feedback for Context -->
+{% if recent_feedback %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-history"></i> Recent Feedback (for context)</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Invoice ID</th>
+                                <th>Original Decision</th>
+                                <th>Expert Correction</th>
+                                <th>Expert</th>
+                                <th>Type</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for feedback in recent_feedback %}
+                            <tr>
+                                <td>{{ feedback.invoice_id }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if feedback.original_agent_decision == 'REJECTED' else 'success' if feedback.original_agent_decision == 'APPROVED' else 'warning' }}">
+                                        {{ feedback.original_agent_decision }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if feedback.human_correction == 'APPROVED' else 'danger' if feedback.human_correction == 'REJECTED' else 'warning' }}">
+                                        {{ feedback.human_correction }}
+                                    </span>
+                                </td>
+                                <td>{{ feedback.expert_name or 'Unknown' }}</td>
+                                <td>{{ feedback.feedback_type or 'N/A' }}</td>
+                                <td>{{ feedback.created_at|datetime_format }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-fill invoice ID from URL parameters if available
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const invoiceId = urlParams.get('invoice_id');
+    if (invoiceId) {
+        document.getElementById('invoice_id').value = invoiceId;
+    }
+});
+</script>
+{% endblock %}

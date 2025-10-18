@@ -1,0 +1,636 @@
+{% extends "human_driven_base.html" %}
+
+{% block title %}Expert Review Dashboard - ResolveLight Learning{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-clipboard-check"></i> Expert Review Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-success" onclick="syncExceptions()">
+                <i class="fas fa-sync-alt"></i> Sync Exceptions
+            </button>
+        </div>
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-refresh"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- System Overview -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.pending_exceptions or 0 }}</h4>
+                        <p class="card-text">Pending Review</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ (stats.system_exceptions or 0) - (stats.pending_exceptions or 0) }}</h4>
+                        <p class="card-text">Reviewed</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.learning_plans or 0 }}</h4>
+                        <p class="card-text">Learning Plans</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-lightbulb fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ stats.human_feedback or 0 }}</h4>
+                        <p class="card-text">Expert Feedback</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-comments fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Exceptions for Review -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list"></i> Exceptions Requiring Expert Review</h5>
+                <div>
+                    <span class="badge bg-danger">{{ pending_exceptions|length }}</span>
+                    <span class="text-muted">pending</span>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if pending_exceptions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Invoice ID</th>
+                                    <th>PO Number</th>
+                                    <th>Amount</th>
+                                    <th>Supplier</th>
+                                    <th>Issue Type</th>
+                                    <th>Reason</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exception in pending_exceptions %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ exception.invoice_id }}</strong>
+                                        <br><small class="text-muted">ID: {{ exception.exception_id }}</small>
+                                    </td>
+                                    <td>{{ exception.po_number or 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if exception.amount else 'secondary' }}">
+                                            {{ exception.amount or 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td>{{ exception.supplier or 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if exception.queue == 'MISSING_DATA' else 'warning' if exception.queue == 'LOW_CONFIDENCE_MATCHES' else 'info' }}">
+                                            {{ exception.queue.replace('_', ' ').title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted" title="{{ exception.routing_reason }}">
+                                            {{ exception.routing_reason[:50] }}{% if exception.routing_reason|length > 50 %}...{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ exception.timestamp or exception.created_at }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-primary" onclick="reviewException('{{ exception.exception_id }}')">
+                                                <i class="fas fa-eye"></i> Review
+                                            </button>
+                                            <button class="btn btn-success" onclick="quickApprove('{{ exception.exception_id }}')">
+                                                <i class="fas fa-check"></i> Approve
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-check-circle fa-4x text-success mb-4"></i>
+                        <h3 class="text-success">All Caught Up!</h3>
+                        <p class="text-muted">No exceptions currently require expert review.</p>
+                        <button class="btn btn-primary" onclick="syncExceptions()">
+                            <i class="fas fa-sync-alt"></i> Sync Exceptions from Logs
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Exception Review Modal -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Review Exception</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="reviewForm">
+                <div class="modal-body">
+                    <div id="exceptionDetails">
+                        <!-- Exception details will be loaded here -->
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <label for="expertName" class="form-label">Your Name (Expert) *</label>
+                        <input type="text" class="form-control" id="expertName" name="expert_name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="expertDecision" class="form-label">Your Decision *</label>
+                        <select class="form-select" id="expertDecision" name="expert_decision" required>
+                            <option value="">Select decision...</option>
+                            <option value="APPROVE">Approve - Agent was correct</option>
+                            <option value="REJECT">Reject - Agent was wrong</option>
+                            <option value="OVERRIDE">Override - Special case</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="expertFeedback" class="form-label">Expert Feedback *</label>
+                        <textarea class="form-control" id="expertFeedback" name="expert_feedback" rows="4" required 
+                                  placeholder="Please explain your decision and provide any additional context..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3" id="correctionSection" style="display: none;">
+                        <label for="humanCorrection" class="form-label">Correct Action</label>
+                        <select class="form-select" id="humanCorrection" name="human_correction">
+                            <option value="">Select correct action...</option>
+                            <option value="APPROVED">Approve Invoice</option>
+                            <option value="REJECTED">Reject Invoice</option>
+                            <option value="PENDING_APPROVAL">Send for Manual Approval</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Review</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Approve Modal -->
+<div class="modal fade" id="quickApproveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Quick Approve Exception</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="quickApproveForm">
+                <div class="modal-body">
+                    <p>Are you sure you want to approve this exception? The agent's decision was correct.</p>
+                    <div class="mb-3">
+                        <label for="quickExpertName" class="form-label">Your Name (Expert) *</label>
+                        <input type="text" class="form-control" id="quickExpertName" name="expert_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Quick Approve</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentExceptionId = null;
+
+function syncExceptions() {
+    fetch('/sync_exceptions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Synced ${data.count} exceptions from logs.`);
+            location.reload();
+        } else {
+            alert('Error syncing exceptions: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error syncing exceptions.');
+    });
+}
+
+function reviewException(exceptionId) {
+    currentExceptionId = exceptionId;
+    
+    // Call the working exception endpoint directly
+    fetch(`/exception/${exceptionId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayExceptionDetails(data);
+            const modal = new bootstrap.Modal(document.getElementById('reviewModal'));
+            modal.show();
+        } else {
+            alert('Error loading exception details: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading exception details.');
+    });
+}
+
+function displayExceptionDetails(data) {
+    const exception = data.exception;
+    const relatedData = data.related_data;
+    const detailsDiv = document.getElementById('exceptionDetails');
+    
+    // Parse context for additional information
+    const context = exception.context ? JSON.parse(exception.context) : {};
+    const priority = context.priority || 'N/A';
+    const suggestedActions = context.suggested_actions || [];
+    const managerApprovalRequired = context.manager_approval_required || false;
+    
+    detailsDiv.innerHTML = `
+        <!-- Exception Overview -->
+        <div class="alert alert-warning">
+            <h6 class="mb-2"><i class="fas fa-exclamation-triangle"></i> Exception Overview</h6>
+            <p class="mb-1"><strong>Type:</strong> <span class="badge bg-danger">${exception.queue.replace('_', ' ').toUpperCase()}</span></p>
+            <p class="mb-1"><strong>Priority:</strong> <span class="badge bg-${priority === 'HIGH' ? 'danger' : priority === 'MEDIUM' ? 'warning' : 'secondary'}">${priority}</span></p>
+            <p class="mb-1"><strong>Reason:</strong> ${exception.routing_reason || 'N/A'}</p>
+            <p class="mb-0"><strong>Manager Approval Required:</strong> ${managerApprovalRequired ? '<span class="text-danger">YES</span>' : '<span class="text-success">NO</span>'}</p>
+        </div>
+
+        <div class="row">
+            <!-- Invoice Information -->
+            <div class="col-md-6">
+                <h6><i class="fas fa-file-invoice"></i> Invoice Information</h6>
+                <div class="card">
+                    <div class="card-body">
+                        <p><strong>Invoice ID:</strong> ${exception.invoice_id}</p>
+                        <p><strong>PO Number:</strong> ${exception.po_number || 'N/A'}</p>
+                        <p><strong>Amount:</strong> ${exception.amount || 'N/A'}</p>
+                        <p><strong>Supplier:</strong> ${exception.supplier || 'N/A'}</p>
+                        <p><strong>Created:</strong> ${exception.timestamp || exception.created_at}</p>
+                        <p><strong>Status:</strong> <span class="badge bg-warning">${exception.status}</span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Related Data -->
+            <div class="col-md-6">
+                <h6><i class="fas fa-link"></i> Related Data</h6>
+                <div class="card">
+                    <div class="card-body">
+                        ${relatedData.invoice ? `
+                            <p><strong>Invoice Found:</strong> <span class="text-success">✓ Yes</span></p>
+                            <p><strong>Supplier:</strong> ${relatedData.invoice.supplier_info?.name || 'N/A'}</p>
+                            <p><strong>Issue Date:</strong> ${relatedData.invoice.issue_date || 'N/A'}</p>
+                            <p><strong>Due Date:</strong> ${relatedData.invoice.due_date || 'N/A'}</p>
+                            <p><strong>Payment Terms:</strong> ${relatedData.invoice.payment_terms || 'N/A'}</p>
+                        ` : '<p class="text-danger"><strong>Invoice:</strong> Not found</p>'}
+                        
+                        ${relatedData.po_item ? `
+                            <hr>
+                            <p><strong>PO Found:</strong> <span class="text-success">✓ Yes</span></p>
+                            <p><strong>PO Number:</strong> ${relatedData.po_item.po_number || 'N/A'}</p>
+                            <p><strong>Contract ID:</strong> ${relatedData.po_item.contract_id || 'N/A'}</p>
+                            <p><strong>Status:</strong> ${relatedData.po_item.status || 'N/A'}</p>
+                            <p><strong>Total Value:</strong> $${relatedData.po_item.total_value || 'N/A'}</p>
+                        ` : '<hr><p class="text-danger"><strong>PO:</strong> Not found</p>'}
+                        
+                        ${relatedData.contract ? `
+                            <hr>
+                            <p><strong>Contract Found:</strong> <span class="text-success">✓ Yes</span></p>
+                            <p><strong>Contract ID:</strong> ${relatedData.contract.contract_id || 'N/A'}</p>
+                            <p><strong>Title:</strong> ${relatedData.contract.contract_title || 'N/A'}</p>
+                            <p><strong>Status:</strong> ${relatedData.contract.contract_metadata?.status || 'N/A'}</p>
+                            <p><strong>Ceiling Value:</strong> $${relatedData.contract.contract_metadata?.contract_ceiling_value || 'N/A'}</p>
+                        ` : '<hr><p class="text-danger"><strong>Contract:</strong> Not found</p>'}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Mismatches -->
+        ${relatedData.data_mismatches && relatedData.data_mismatches.length > 0 ? `
+        <div class="mt-3">
+            <h6><i class="fas fa-exclamation-circle text-warning"></i> Data Mismatches Detected</h6>
+            <div class="alert alert-warning">
+                ${relatedData.data_mismatches.map(mismatch => `
+                    <div class="mb-2">
+                        <strong>${mismatch.type}:</strong> ${mismatch.description}
+                        ${mismatch.invoice_po ? `<br><small>Invoice PO: ${mismatch.invoice_po}</small>` : ''}
+                        ${mismatch.found_po ? `<br><small>Found PO: ${mismatch.found_po}</small>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+
+        <!-- Suggested Actions -->
+        ${suggestedActions.length > 0 ? `
+        <div class="mt-3">
+            <h6><i class="fas fa-lightbulb"></i> Suggested Actions</h6>
+            <div class="alert alert-info">
+                <ul class="mb-0">
+                    ${suggestedActions.map(action => `<li>${action}</li>`).join('')}
+                </ul>
+            </div>
+        </div>
+        ` : ''}
+
+        <!-- Additional Context -->
+        ${exception.context && context.details ? `
+        <div class="mt-3">
+            <h6><i class="fas fa-info-circle"></i> Additional Context</h6>
+            <div class="alert alert-light">
+                <ul class="mb-0">
+                    ${context.details.map(detail => `<li>${detail}</li>`).join('')}
+                </ul>
+            </div>
+        </div>
+        ` : ''}
+    `;
+}
+
+function quickApprove(exceptionId) {
+    currentExceptionId = exceptionId;
+    const modal = new bootstrap.Modal(document.getElementById('quickApproveModal'));
+    modal.show();
+}
+
+// Handle expert decision change
+document.getElementById('expertDecision').addEventListener('change', function() {
+    const correctionSection = document.getElementById('correctionSection');
+    if (this.value === 'REJECT' || this.value === 'OVERRIDE') {
+        correctionSection.style.display = 'block';
+    } else {
+        correctionSection.style.display = 'none';
+    }
+});
+
+// Handle review form submission
+document.getElementById('reviewForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    data.exception_id = currentExceptionId;
+    
+    fetch('/submit_exception_review', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Exception review submitted successfully!');
+            location.reload();
+        } else {
+            alert('Error submitting review: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error submitting review.');
+    });
+});
+
+// Handle quick approve form submission
+document.getElementById('quickApproveForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    data.exception_id = currentExceptionId;
+    data.expert_decision = 'APPROVE';
+    data.expert_feedback = 'Quick approval - agent decision was correct';
+    data.human_correction = 'APPROVED';
+    
+    fetch('/submit_exception_review', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Exception approved successfully!');
+            location.reload();
+        } else {
+            alert('Error approving exception: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error approving exception.');
+    });
+});
+
+// Add displayFlexibleExceptionDetails function for the main dashboard
+function displayFlexibleExceptionDetails(data) {
+    const exception = data.exception;
+    const relatedData = data.related_data;
+    const detailsDiv = document.getElementById('flexibleExceptionDetails');
+    
+    // Parse JSON fields
+    const structuredFields = exception.structured_fields || {};
+    const unstructuredText = exception.unstructured_text || [];
+    const context = exception.context || {};
+    const rawData = exception.raw_data || {};
+    
+    detailsDiv.innerHTML = `
+        <!-- Exception Overview -->
+        <div class="alert alert-warning">
+            <h6 class="mb-2"><i class="fas fa-exclamation-triangle"></i> Exception Overview</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Type:</strong> <span class="badge bg-danger">${exception.queue.replace('_', ' ').toUpperCase()}</span></p>
+                    <p class="mb-1"><strong>Priority:</strong> <span class="badge bg-${getPriorityColor(exception.priority)}">${exception.priority || 'N/A'}</span></p>
+                    <p class="mb-1"><strong>Status:</strong> <span class="badge bg-warning">${exception.status}</span></p>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Created:</strong> ${exception.timestamp || exception.created_at}</p>
+                    <p class="mb-1"><strong>Expert Reviewed:</strong> ${exception.expert_reviewed ? '<span class="text-success">Yes</span>' : '<span class="text-danger">No</span>'}</p>
+                    <p class="mb-0"><strong>Last Updated:</strong> ${exception.updated_at || 'N/A'}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Structured Fields -->
+            <div class="col-md-6">
+                <h6><i class="fas fa-database"></i> Structured Data</h6>
+                <div class="card">
+                    <div class="card-body">
+                        ${Object.keys(structuredFields).length > 0 ? 
+                            Object.entries(structuredFields).map(([key, value]) => `
+                                <div class="mb-2">
+                                    <strong>${formatFieldName(key)}:</strong> 
+                                    <span class="text-muted">${formatFieldValue(value)}</span>
+                                </div>
+                            `).join('') :
+                            '<p class="text-muted">No structured data available</p>'
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Related Data -->
+            <div class="col-md-6">
+                <h6><i class="fas fa-link"></i> Related Data</h6>
+                <div class="card">
+                    <div class="card-body">
+                        ${relatedData.invoice ? `
+                            <p><strong>Invoice Found:</strong> <span class="text-success">✓ Yes</span></p>
+                            <p><strong>Supplier:</strong> ${relatedData.invoice.supplier_info?.name || 'N/A'}</p>
+                            <p><strong>Amount:</strong> $${relatedData.invoice.summary?.billing_amount || 'N/A'}</p>
+                            <p><strong>Issue Date:</strong> ${relatedData.invoice.issue_date || 'N/A'}</p>
+                        ` : '<p class="text-danger"><strong>Invoice:</strong> Not found</p>'}
+                        
+                        ${relatedData.data_mismatches && relatedData.data_mismatches.length > 0 ? `
+                            <hr>
+                            <p><strong>Data Issues:</strong> <span class="text-warning">${relatedData.data_mismatches.length} found</span></p>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Context Information -->
+        ${Object.keys(context).length > 0 ? `
+        <div class="mt-3">
+            <h6><i class="fas fa-info-circle"></i> Context Information</h6>
+            <div class="card">
+                <div class="card-body">
+                    ${Object.entries(context).map(([key, value]) => `
+                        <div class="mb-3">
+                            <h6 class="text-primary">${formatFieldName(key)}</h6>
+                            ${Array.isArray(value) ? 
+                                `<ul class="mb-0"><li>${value.join('</li><li>')}</li></ul>` :
+                                `<p class="mb-0 text-muted">${formatFieldValue(value)}</p>`
+                            }
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        ` : ''}
+
+        <!-- Unstructured Text -->
+        ${unstructuredText.length > 0 ? `
+        <div class="mt-3">
+            <h6><i class="fas fa-file-text"></i> Raw Log Content</h6>
+            <div class="card">
+                <div class="card-body">
+                    <pre class="mb-0" style="font-size: 0.9em; max-height: 200px; overflow-y: auto;">${unstructuredText.join('\n')}</pre>
+                </div>
+            </div>
+        </div>
+        ` : ''}
+
+        <!-- Data Mismatches -->
+        ${relatedData.data_mismatches && relatedData.data_mismatches.length > 0 ? `
+        <div class="mt-3">
+            <h6><i class="fas fa-exclamation-circle text-warning"></i> Data Mismatches Detected</h6>
+            <div class="alert alert-warning">
+                ${relatedData.data_mismatches.map(mismatch => `
+                    <div class="mb-2">
+                        <strong>${mismatch.type}:</strong> ${mismatch.description}
+                        ${mismatch.invoice_po ? `<br><small>Invoice PO: ${mismatch.invoice_po}</small>` : ''}
+                        ${mismatch.found_po ? `<br><small>Found PO: ${mismatch.found_po}</small>` : ''}
+                        ${mismatch.available_pos ? `<br><small>Available POs: ${mismatch.available_pos.slice(0, 5).join(', ')}${mismatch.available_pos.length > 5 ? '...' : ''}</small>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        ` : ''}
+    `;
+}
+
+// Helper functions
+function getPriorityColor(priority) {
+    switch(priority?.toUpperCase()) {
+        case 'HIGH': return 'danger';
+        case 'MEDIUM': return 'warning';
+        case 'LOW': return 'secondary';
+        default: return 'secondary';
+    }
+}
+
+function formatFieldName(fieldName) {
+    return fieldName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+function formatFieldValue(value) {
+    if (typeof value === 'object' && value !== null) {
+        return JSON.stringify(value, null, 2);
+    }
+    return String(value);
+}
+</script>
+
+
+{% endblock %}

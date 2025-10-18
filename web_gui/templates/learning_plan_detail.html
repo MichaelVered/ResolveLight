@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plan.title }} - Learning Plan Detail{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-lightbulb"></i> {{ plan.title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('learning_plans') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Plans
+            </a>
+        </div>
+        {% if plan.status == 'draft' %}
+        <div class="btn-group me-2">
+            <button class="btn btn-sm btn-success" onclick="approvePlan({{ plan.id }})">
+                <i class="fas fa-check"></i> Approve
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="rejectPlan({{ plan.id }})">
+                <i class="fas fa-times"></i> Reject
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Plan Overview -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Plan Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Type:</strong></td>
+                                <td><span class="badge bg-info">{{ plan.plan_type }}</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Priority:</strong></td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if plan.priority == 'critical' else 'warning' if plan.priority == 'high' else 'info' if plan.priority == 'medium' else 'success' }}">
+                                        {{ plan.priority }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Status:</strong></td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if plan.status == 'approved' else 'warning' if plan.status == 'draft' else 'danger' if plan.status == 'rejected' else 'secondary' }}">
+                                        {{ plan.status }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Created:</strong></td>
+                                <td>{{ plan.created_at|datetime_format }}</td>
+                            </tr>
+                            {% if plan.approved_by %}
+                            <tr>
+                                <td><strong>Approved by:</strong></td>
+                                <td>{{ plan.approved_by }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if plan.approved_at %}
+                            <tr>
+                                <td><strong>Approved at:</strong></td>
+                                <td>{{ plan.approved_at|datetime_format }}</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        {% if plan.impact_analysis %}
+                        <h6>Impact Analysis</h6>
+                        <ul class="list-unstyled">
+                            {% if plan.impact_analysis.affected_invoices %}
+                            <li><i class="fas fa-file-invoice text-primary"></i> <strong>Affected Invoices:</strong> {{ plan.impact_analysis.affected_invoices }}</li>
+                            {% endif %}
+                            {% if plan.impact_analysis.improvement_expected %}
+                            <li><i class="fas fa-chart-line text-success"></i> <strong>Expected Improvement:</strong> {{ plan.impact_analysis.improvement_expected }}</li>
+                            {% endif %}
+                            {% if plan.impact_analysis.risk_level %}
+                            <li><i class="fas fa-exclamation-triangle text-warning"></i> <strong>Risk Level:</strong> {{ plan.impact_analysis.risk_level }}</li>
+                            {% endif %}
+                            {% if plan.impact_analysis.implementation_effort %}
+                            <li><i class="fas fa-cogs text-info"></i> <strong>Implementation Effort:</strong> {{ plan.impact_analysis.implementation_effort }}</li>
+                            {% endif %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Description -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Description</h5>
+            </div>
+            <div class="card-body">
+                <p>{{ plan.description }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Suggested Changes -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Suggested Changes</h5>
+            </div>
+            <div class="card-body">
+                {% if plan.suggested_changes %}
+                    <div class="mb-3">
+                        <strong>File Path:</strong> {{ plan.suggested_changes.file_path or 'N/A' }}<br>
+                        <strong>Change Type:</strong> {{ plan.suggested_changes.change_type or 'N/A' }}
+                    </div>
+                    
+                    {% if plan.suggested_changes.old_code %}
+                    <div class="mb-3">
+                        <h6>Current Code:</h6>
+                        <div class="code-block">
+                            <pre>{{ plan.suggested_changes.old_code }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if plan.suggested_changes.new_code %}
+                    <div class="mb-3">
+                        <h6>Proposed New Code:</h6>
+                        <div class="code-block">
+                            <pre>{{ plan.suggested_changes.new_code }}</pre>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if plan.suggested_changes.additional_files %}
+                    <div class="mb-3">
+                        <h6>Additional Files to Modify:</h6>
+                        <ul>
+                            {% for file in plan.suggested_changes.additional_files %}
+                            <li><code>{{ file }}</code></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">No specific changes suggested.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LLM Reasoning -->
+{% if plan.llm_reasoning %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">AI Reasoning</h5>
+            </div>
+            <div class="card-body">
+                <p>{{ plan.llm_reasoning }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Source Learning Records -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Source Learning Records</h5>
+            </div>
+            <div class="card-body">
+                {% if source_records %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Source Type</th>
+                                    <th>Learning Opportunity</th>
+                                    <th>Confidence</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in source_records %}
+                                <tr>
+                                    <td>{{ record.id }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ record.source_type }}</span>
+                                        <br>
+                                        <small class="text-muted">{{ record.source_file }}</small>
+                                    </td>
+                                    <td>{{ record.learning_opportunity[:100] }}{% if record.learning_opportunity|length > 100 %}...{% endif %}</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar" role="progressbar" style="width: {{ record.confidence_score * 100 }}%">
+                                                {{ (record.confidence_score * 100)|round(1) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if record.status == 'analyzed' else 'warning' if record.status == 'pending' else 'secondary' }}">
+                                            {{ record.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ record.created_at|datetime_format }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">No source learning records found.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Implementation Notes -->
+{% if plan.implementation_notes %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Implementation Notes</h5>
+            </div>
+            <div class="card-body">
+                <p>{{ plan.implementation_notes }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Approval Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Approve Learning Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="approveForm" method="POST">
+                <div class="modal-body">
+                    <p>Are you sure you want to approve this learning plan?</p>
+                    <div class="mb-3">
+                        <label for="expert_name" class="form-label">Your Name (Expert)</label>
+                        <input type="text" class="form-control" id="expert_name" name="expert_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Approve Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Rejection Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reject Learning Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="rejectForm" method="POST">
+                <div class="modal-body">
+                    <p>Are you sure you want to reject this learning plan?</p>
+                    <div class="mb-3">
+                        <label for="rejection_reason" class="form-label">Reason for Rejection</label>
+                        <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject Plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function approvePlan(planId) {
+    const form = document.getElementById('approveForm');
+    form.action = `/learning_plans/${planId}/approve`;
+    const modal = new bootstrap.Modal(document.getElementById('approveModal'));
+    modal.show();
+}
+
+function rejectPlan(planId) {
+    const form = document.getElementById('rejectForm');
+    form.action = `/learning_plans/${planId}/reject`;
+    const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

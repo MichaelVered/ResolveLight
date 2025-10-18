@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}Learning Records - Learning Agent{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-clipboard-list"></i> Learning Records</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-filter"></i> Filter by Status
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('learning_records') }}">All</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('learning_records', status='pending') }}">Pending</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('learning_records', status='analyzed') }}">Analyzed</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+{% if current_filter %}
+<div class="alert alert-info">
+    <i class="fas fa-info-circle"></i> Showing records with status: <strong>{{ current_filter }}</strong>
+    <a href="{{ url_for('learning_records') }}" class="btn btn-sm btn-outline-info ms-2">Clear Filter</a>
+</div>
+{% endif %}
+
+{% if records %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Source</th>
+                    <th>Learning Opportunity</th>
+                    <th>Confidence</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in records %}
+                <tr>
+                    <td>{{ record.id }}</td>
+                    <td>
+                        <span class="badge bg-info">{{ record.source_type }}</span>
+                        <br>
+                        <small class="text-muted">{{ record.source_file }}</small>
+                    </td>
+                    <td>{{ record.learning_opportunity[:150] }}{% if record.learning_opportunity|length > 150 %}...{% endif %}</td>
+                    <td>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar" role="progressbar" style="width: {{ record.confidence_score * 100 }}%">
+                                {{ (record.confidence_score * 100)|round(1) }}%
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if record.status == 'analyzed' else 'warning' if record.status == 'pending' else 'secondary' }}">
+                            {{ record.status }}
+                        </span>
+                    </td>
+                    <td>{{ record.created_at|datetime_format }}</td>
+                    <td>
+                        <a href="{{ url_for('learning_record_detail', record_id=record.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        <button class="btn btn-sm btn-outline-success" onclick="addFeedbackToRecord({{ record.id }})">
+                            <i class="fas fa-comment"></i> Add Feedback
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-clipboard-list fa-4x text-muted mb-4"></i>
+        <h3 class="text-muted">No Learning Records Found</h3>
+        <p class="text-muted">
+            {% if current_filter %}
+                No learning records found with status "{{ current_filter }}".
+            {% else %}
+                No learning records have been generated yet. Run the learning agent to analyze system logs and identify learning opportunities.
+            {% endif %}
+        </p>
+        {% if not current_filter %}
+        <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+            <i class="fas fa-tachometer-alt"></i> Go to Dashboard
+        </a>
+        {% endif %}
+    </div>
+{% endif %}
+
+<!-- Add Feedback Modal -->
+<div class="modal fade" id="addFeedbackModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Feedback to Learning Record</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addFeedbackForm">
+                <div class="modal-body">
+                    <input type="hidden" id="record_id" name="record_id">
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modal_invoice_id" class="form-label">Invoice ID *</label>
+                                <input type="text" class="form-control" id="modal_invoice_id" name="invoice_id" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modal_expert_name" class="form-label">Your Name (Expert) *</label>
+                                <input type="text" class="form-control" id="modal_expert_name" name="expert_name" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modal_original_decision" class="form-label">Agent's Original Decision *</label>
+                                <select class="form-select" id="modal_original_decision" name="original_decision" required>
+                                    <option value="">Select decision...</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modal_human_correction" class="form-label">Your Correction *</label>
+                                <select class="form-select" id="modal_human_correction" name="human_correction" required>
+                                    <option value="">Select correction...</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modal_routing_queue" class="form-label">Routing Queue (if rejected)</label>
+                                <select class="form-select" id="modal_routing_queue" name="routing_queue">
+                                    <option value="">Select queue...</option>
+                                    <option value="missing_data">Missing Data</option>
+                                    <option value="low_confidence_matches">Low Confidence Matches</option>
+                                    <option value="price_discrepancies">Price Discrepancies</option>
+                                    <option value="supplier_mismatch">Supplier Mismatch</option>
+                                    <option value="billing_discrepancies">Billing Discrepancies</option>
+                                    <option value="date_discrepancies">Date Discrepancies</option>
+                                    <option value="high_value_approval">High Value Approval</option>
+                                    <option value="general_exceptions">General Exceptions</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="modal_feedback_type" class="form-label">Feedback Type *</label>
+                                <select class="form-select" id="modal_feedback_type" name="feedback_type" required>
+                                    <option value="">Select type...</option>
+                                    <option value="routing_correction">Routing Correction</option>
+                                    <option value="validation_override">Validation Override</option>
+                                    <option value="business_rule">Business Rule</option>
+                                    <option value="data_quality">Data Quality Issue</option>
+                                    <option value="false_positive">False Positive</option>
+                                    <option value="false_negative">False Negative</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="modal_feedback_text" class="form-label">Detailed Feedback *</label>
+                        <textarea class="form-control" id="modal_feedback_text" name="feedback_text" rows="4" required 
+                                  placeholder="Please provide detailed feedback about why the agent's decision was incorrect and what the correct decision should be..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Feedback</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addFeedbackToRecord(recordId) {
+    document.getElementById('record_id').value = recordId;
+    const modal = new bootstrap.Modal(document.getElementById('addFeedbackModal'));
+    modal.show();
+}
+
+document.getElementById('addFeedbackForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const recordId = formData.get('record_id');
+    
+    // Convert form data to JSON
+    const data = {
+        invoice_id: formData.get('invoice_id'),
+        original_decision: formData.get('original_decision'),
+        human_correction: formData.get('human_correction'),
+        routing_queue: formData.get('routing_queue'),
+        feedback_text: formData.get('feedback_text'),
+        expert_name: formData.get('expert_name'),
+        feedback_type: formData.get('feedback_type'),
+        supporting_evidence: {
+            timestamp: new Date().toISOString(),
+            user_agent: navigator.userAgent
+        }
+    };
+    
+    fetch(`/api/learning_records/${recordId}/feedback`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Feedback added successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('addFeedbackModal')).hide();
+            location.reload();
+        } else {
+            alert('Error adding feedback: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding feedback: ' + error);
+    });
+});
+</script>
+{% endblock %}
