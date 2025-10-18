@@ -1,6 +1,6 @@
 # ResolveLight Learning Agent
 
-An intelligent learning system that analyzes ResolveLight agent performance and generates optimization plans based on system logs and human feedback.
+An intelligent learning system that analyzes ResolveLight agent performance and generates optimization plans based on system logs and human feedback. The system supports both autonomous learning and human-driven learning workflows.
 
 ## 🎯 Overview
 
@@ -9,24 +9,30 @@ The Learning Agent is a standalone system that:
 - **Generates** intelligent optimization plans using LLM
 - **Collects** human feedback through a web interface
 - **Tracks** learning progress and system improvements
+- **Supports** both autonomous and human-driven learning modes
 
 ## 🏗️ Architecture
 
 ```
 ResolveLight/
-├── learning_agent/           # Core learning agent logic
-│   ├── learning_agent.py     # Main learning agent with LLM integration
-│   ├── log_analyzer.py       # Log analysis and pattern detection
-│   ├── database.py           # SQLite database operations
+├── learning_agent/                    # Core learning agent logic
+│   ├── learning_agent.py             # Autonomous learning agent
+│   ├── human_driven_learning_agent.py # Human-driven learning agent
+│   ├── log_analyzer.py               # Log analysis and pattern detection
+│   ├── exception_parser.py           # Exception log parsing
+│   ├── database.py                   # SQLite database operations
 │   └── __init__.py
-├── web_gui/                  # Web interface for human feedback
-│   ├── app.py               # Flask web application
-│   └── templates/           # HTML templates
-├── learning_data/           # SQLite database storage
+├── web_gui/                          # Web interface for human feedback
+│   ├── app.py                       # Autonomous learning Flask app
+│   ├── human_driven_app.py          # Human-driven learning Flask app
+│   └── templates/                   # HTML templates
+├── learning_data/                   # SQLite database storage
 │   └── learning.db
-├── run_learning_agent.py    # Main script to run learning agent
-├── test_learning_agent.py   # Test script (no LLM required)
-└── requirements_learning.txt # Dependencies
+├── run_learning_agent.py            # Autonomous learning script
+├── run_human_driven_learning.py     # Human-driven learning script
+├── start_learning_system.sh         # Quick start script
+├── test_learning_agent.py           # Test script (no LLM required)
+└── requirements_learning.txt        # Dependencies
 ```
 
 ## 🚀 Quick Start
@@ -39,14 +45,25 @@ pip install -r requirements_learning.txt
 
 ### 2. Set Up API Key (for LLM features)
 
+Create a `.env` file in the parent directory (`projects/.env`):
 ```bash
-export GOOGLE_API_KEY="your_gemini_api_key_here"
-# OR
-export GEMINI_API_KEY="your_gemini_api_key_here"
+GEMINI_API_KEY="your_gemini_api_key_here"
 ```
 
-### 3. Run Learning Agent
+### 3. Choose Learning Mode
 
+#### Option A: Human-Driven Learning (Recommended)
+```bash
+# Start the human-driven learning system
+python run_human_driven_learning.py
+
+# Or use the quick start script
+./start_learning_system.sh
+```
+
+Then open http://localhost:5001 in your browser.
+
+#### Option B: Autonomous Learning
 ```bash
 # Full learning analysis with LLM
 python run_learning_agent.py
@@ -56,12 +73,6 @@ python test_learning_agent.py
 
 # Verbose output
 python run_learning_agent.py --verbose
-```
-
-### 4. Start Web GUI
-
-```bash
-python web_gui/app.py
 ```
 
 Then open http://localhost:5000 in your browser.
@@ -75,6 +86,14 @@ Then open http://localhost:5000 in your browser.
 - **Database Storage**: Stores learning records and plans in SQLite
 
 ### Web GUI
+
+#### Human-Driven Learning Interface (Port 5001)
+- **Exception Review Dashboard**: Review system exceptions from logs
+- **Expert Feedback**: Provide corrections and expert input
+- **Learning Plans**: Review and approve optimization plans
+- **Review History**: Track expert feedback and corrections
+
+#### Autonomous Learning Interface (Port 5000)
 - **Dashboard**: System overview and statistics
 - **Learning Plans**: Review and approve optimization plans
 - **Human Feedback**: Submit corrections and expert input
@@ -93,9 +112,46 @@ The LLM can generate various types of optimization plans:
 - `business_rule_addition`: Add new business rules
 - `performance_optimization`: Speed/memory improvements
 
+## 🌟 Key Features
+
+### Human-Driven Learning Benefits
+- **Pre-populated Data**: All exception information is automatically extracted and presented
+- **Financial Expert Focus**: Designed for non-technical financial experts
+- **Structured Workflow**: Clear process from exception review to learning plan approval
+- **Data Integrity**: Only presents information explicitly found in logs
+- **No Interpretation**: System doesn't attempt to fix or interpret missing data
+
+### Exception Review Process
+1. **Automatic Parsing**: System extracts all available data from exception logs
+2. **Related Data Lookup**: Finds corresponding invoice files when available
+3. **Expert Review**: Financial experts review with complete context
+4. **Feedback Collection**: Structured feedback collection with business context
+5. **Learning Generation**: LLM creates optimization plans based on expert input
+
+### Data Handling Philosophy
+- **Log-Only Data**: Only presents information explicitly stated in log files
+- **No Data Interpretation**: System doesn't attempt to fix mismatches or find missing links
+- **Transparent Display**: Clearly shows "Not found" when data is unavailable
+- **Invoice Priority**: Always attempts to find invoice files (most critical data)
+
 ## 🔍 How It Works
 
-### 1. Log Analysis
+### Human-Driven Learning Workflow (Recommended)
+
+1. **Exception Parsing**: System automatically parses exception logs and extracts structured data
+2. **Expert Review**: Financial experts review exceptions with all relevant information pre-populated
+3. **Feedback Collection**: Experts provide corrections and business context
+4. **Learning Plan Generation**: LLM generates optimization plans based on expert feedback
+5. **Plan Review**: Experts review and approve learning plans before implementation
+
+### Autonomous Learning Workflow
+
+1. **Log Analysis**: System analyzes all logs to identify patterns
+2. **Learning Opportunity Detection**: Identifies recurring issues and inefficiencies
+3. **LLM Plan Generation**: Generates optimization plans automatically
+4. **Human Review**: Experts review and approve plans
+
+### Data Sources
 The learning agent analyzes:
 - `system_logs/exceptions_ledger.log` - Exception patterns
 - `system_logs/queue_*.log` - Queue performance issues
@@ -103,27 +159,13 @@ The learning agent analyzes:
 - `system_logs/payments.log` - Payment processing
 - `memory/*.jsonl` - Session data
 
-### 2. Learning Opportunity Detection
-Identifies patterns such as:
-- High rejection rates
-- Recurring exception types
-- Queue concentration issues
-- Low confidence matching
-- High-value invoice problems
-
-### 3. LLM Plan Generation
-For each learning opportunity, the LLM:
-- Analyzes the root cause
-- Determines the best optimization strategy
-- Provides specific, code-level changes
-- Estimates impact and implementation effort
-
-### 4. Human Review
-Experts can:
-- Review generated learning plans
-- Provide feedback on specific cases
-- Approve or reject optimization plans
-- Add additional context
+### Exception Data Extraction
+The system extracts structured data from logs including:
+- Exception ID, type, and status
+- Invoice ID and related PO numbers
+- Amounts and supplier information
+- Routing reasons and context
+- Timestamps and priority levels
 
 ## 📝 Usage Examples
 
@@ -142,6 +184,12 @@ python run_learning_agent.py --api-key your_api_key_here
 
 ### Web GUI Navigation
 
+#### Human-Driven Learning Interface (Port 5001)
+1. **Exception Review** (`/`): Review system exceptions with pre-populated data
+2. **Learning Plans** (`/learning_plans`): Review and approve optimization plans
+3. **Feedback History** (`/feedback_history`): Track expert feedback and corrections
+
+#### Autonomous Learning Interface (Port 5000)
 1. **Dashboard** (`/`): Overview of system status and recent activity
 2. **Learning Plans** (`/learning_plans`): Review and approve optimization plans
 3. **Human Feedback** (`/feedback`): Submit corrections and expert input
@@ -229,25 +277,84 @@ python run_learning_agent.py --verbose
    ```
    ValueError: API key required
    ```
-   Solution: Set `GOOGLE_API_KEY` environment variable
+   Solution: Create `.env` file in parent directory with `GEMINI_API_KEY="your_key"`
 
-2. **Database Error**
+2. **Port Already in Use**
+   ```
+   Address already in use Port 5001 is in use
+   ```
+   Solution: Kill existing processes with `pkill -f python` or use different port
+
+3. **Database Error**
    ```
    sqlite3.OperationalError: no such table
    ```
    Solution: Database will auto-create on first run
 
-3. **Web GUI Not Starting**
+4. **Web GUI Not Starting**
    ```
    ModuleNotFoundError: No module named 'flask'
    ```
    Solution: Install dependencies with `pip install -r requirements_learning.txt`
 
+5. **Exception Not Found Error**
+   ```
+   Error loading exception details
+   ```
+   Solution: Ensure database is synced by refreshing the dashboard
+
+6. **SQLite Threading Error**
+   ```
+   SQLite objects created in a thread can only be used in that same thread
+   ```
+   Solution: This is handled automatically in the current implementation
+
 ### Debug Mode
 ```bash
+# Human-driven learning (recommended)
+export FLASK_ENV=development
+python web_gui/human_driven_app.py
+
+# Autonomous learning
 export FLASK_ENV=development
 python web_gui/app.py
 ```
+
+### Database Reset
+If you need to clear the learning database:
+```bash
+rm learning_data/learning.db
+# Database will be recreated on next run
+```
+
+## 🗄️ Database Schema
+
+The learning agent uses SQLite with the following tables:
+
+### `system_exceptions`
+Stores parsed exception data from logs:
+- `exception_id`, `invoice_id`, `po_number`, `amount`
+- `supplier`, `exception_type`, `queue`, `routing_reason`
+- `timestamp`, `context`, `status`, `expert_reviewed`
+- `expert_feedback`, `expert_name`, `reviewed_at`, `human_correction`
+
+### `human_feedback`
+Stores expert feedback and corrections:
+- `id`, `created_at`, `exception_id`, `expert_name`
+- `feedback_type`, `feedback_text`, `correction_action`
+- `priority`, `status`, `reviewed_at`
+
+### `learning_plans`
+Stores generated optimization plans:
+- `id`, `created_at`, `plan_type`, `title`, `description`
+- `source_feedback_ids`, `suggested_changes`, `impact_assessment`
+- `implementation_effort`, `status`, `approved_by`, `approved_at`
+
+### `learning_records`
+Stores learning analysis results:
+- `id`, `created_at`, `analysis_type`, `source_data`
+- `findings`, `recommendations`, `confidence_score`
+- `status`, `processed_at`
 
 ## 🔮 Future Enhancements
 
@@ -266,7 +373,17 @@ python web_gui/app.py
 
 ## 📚 API Reference
 
-### LearningAgent Class
+### HumanDrivenLearningAgent Class
+```python
+from learning_agent import HumanDrivenLearningAgent
+
+agent = HumanDrivenLearningAgent(repo_root="/path/to/ResolveLight")
+agent.sync_exceptions_from_logs()
+exceptions = agent.get_pending_exceptions()
+agent.close()
+```
+
+### LearningAgent Class (Autonomous)
 ```python
 from learning_agent import LearningAgent
 
@@ -274,6 +391,14 @@ agent = LearningAgent(repo_root="/path/to/ResolveLight", api_key="your_key")
 results = agent.run_learning_analysis()
 plans = agent.get_learning_plans()
 agent.close()
+```
+
+### ExceptionParser Class
+```python
+from learning_agent import ExceptionParser
+
+parser = ExceptionParser("/path/to/ResolveLight")
+exceptions = parser.parse_all_exceptions()
 ```
 
 ### LogAnalyzer Class
@@ -292,6 +417,7 @@ from learning_agent import LearningDatabase
 db = LearningDatabase("learning_data/learning.db")
 record_id = db.store_learning_record(...)
 plans = db.get_learning_plans()
+exceptions = db.get_pending_exceptions()
 db.close()
 ```
 
