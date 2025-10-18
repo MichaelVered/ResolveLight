@@ -353,7 +353,7 @@ function displayExceptionDetails(data) {
                             <p><strong>Contract ID:</strong> ${relatedData.po_item.contract_id || 'N/A'}</p>
                             <p><strong>Status:</strong> ${relatedData.po_item.status || 'N/A'}</p>
                             <p><strong>Total Value:</strong> $${relatedData.po_item.total_value || 'N/A'}</p>
-                        ` : '<hr><p class="text-danger"><strong>PO:</strong> Not found</p>'}
+                        ` : '<hr><p class="text-muted"><strong>PO:</strong> Not referenced in log files</p>'}
                         
                         ${relatedData.contract ? `
                             <hr>
@@ -362,7 +362,7 @@ function displayExceptionDetails(data) {
                             <p><strong>Title:</strong> ${relatedData.contract.contract_title || 'N/A'}</p>
                             <p><strong>Status:</strong> ${relatedData.contract.contract_metadata?.status || 'N/A'}</p>
                             <p><strong>Ceiling Value:</strong> $${relatedData.contract.contract_metadata?.contract_ceiling_value || 'N/A'}</p>
-                        ` : '<hr><p class="text-danger"><strong>Contract:</strong> Not found</p>'}
+                        ` : '<hr><p class="text-muted"><strong>Contract:</strong> Not referenced in log files</p>'}
                     </div>
                 </div>
             </div>

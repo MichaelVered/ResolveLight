@@ -480,24 +480,18 @@ class GoldenSetTester:
                 print(f"   {invoice_file}: {error}")
 
 
-def clear_all_logs_and_sessions():
-    """Clear all log files and session files for a clean start (from runnerLog.py)."""
+def clear_learning_data_and_sessions():
+    """Clear learning database and session files for a clean start, but preserve system logs."""
     import shutil
     
-    # Clear system logs directory - only clear files that actually exist
-    system_logs_dir = "system_logs"
-    if os.path.exists(system_logs_dir):
-        # Only clear the logs that are actually used
-        used_logs = ["payments.log", "exceptions_ledger.log", "processed_invoices.log"]
-        for log_file in used_logs:
-            file_path = os.path.join(system_logs_dir, log_file)
-            if os.path.exists(file_path):
-                try:
-                    with open(file_path, 'w') as f:
-                        f.write("")  # Clear file content
-                    print(f"🧹 Cleared: {file_path}")
-                except Exception as e:
-                    print(f"⚠️ Could not clear {file_path}: {e}")
+    # Clear learning database
+    learning_db_path = "learning_data/learning.db"
+    if os.path.exists(learning_db_path):
+        try:
+            os.remove(learning_db_path)
+            print(f"🧹 Cleared learning database: {learning_db_path}")
+        except Exception as e:
+            print(f"⚠️ Could not clear learning database {learning_db_path}: {e}")
     
     # Clear memory directory (session files)
     memory_dir = "memory"
@@ -512,13 +506,14 @@ def clear_all_logs_and_sessions():
                 except Exception as e:
                     print(f"⚠️ Could not clear {file_path}: {e}")
     
-    print("✨ All logs and sessions cleared for clean start!")
+    print("✨ Learning data and sessions cleared for clean start!")
+    print("📊 System logs preserved for invoice processing tracking")
 
 
 async def main():
     """Main function to run the invoice tests using agentic workflow (with runnerLog approach)."""
     # Clear all logs and sessions at the start of the test suite
-    clear_all_logs_and_sessions()
+    clear_learning_data_and_sessions()
     
     # Ask user for invoice folder
     print("🎯 INVOICE TEST SUITE")

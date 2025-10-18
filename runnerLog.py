@@ -68,23 +68,18 @@ class JsonlLoggerPlugin(BasePlugin):
 
 # ----------------- Log Clearing Function -----------------
 
-def clear_all_logs_and_sessions():
-    """Clear all log files and session files for a clean start."""
+def clear_learning_data_and_sessions():
+    """Clear learning database and session files for a clean start, but preserve system logs."""
     import shutil
     
-    # Clear system logs directory - only clear files that actually exist
-    system_logs_dir = "system_logs"
-    if os.path.exists(system_logs_dir):
-        # Clear all .log files in the system_logs directory
-        for file in os.listdir(system_logs_dir):
-            if file.endswith('.log'):
-                file_path = os.path.join(system_logs_dir, file)
-                try:
-                    with open(file_path, 'w') as f:
-                        f.write("")  # Clear file content
-                    print(f"🧹 Cleared: {file_path}")
-                except Exception as e:
-                    print(f"⚠️ Could not clear {file_path}: {e}")
+    # Clear learning database
+    learning_db_path = "learning_data/learning.db"
+    if os.path.exists(learning_db_path):
+        try:
+            os.remove(learning_db_path)
+            print(f"🧹 Cleared learning database: {learning_db_path}")
+        except Exception as e:
+            print(f"⚠️ Could not clear learning database {learning_db_path}: {e}")
     
     # Clear memory directory (session files)
     memory_dir = "memory"
@@ -99,7 +94,8 @@ def clear_all_logs_and_sessions():
                 except Exception as e:
                     print(f"⚠️ Could not clear {file_path}: {e}")
     
-    print("✨ All logs and sessions cleared for clean start!")
+    print("✨ Learning data and sessions cleared for clean start!")
+    print("📊 System logs preserved for invoice processing tracking")
 
 
 # ----------------- Main Application Logic -----------------
@@ -110,8 +106,8 @@ async def main():
     """
     print("🚀 Starting Agent Application (runnerLog)...")
     
-    # Clear all logs and sessions for a clean start
-    clear_all_logs_and_sessions()
+    # Clear learning data and sessions for a clean start (preserve system logs)
+    clear_learning_data_and_sessions()
 
     # Load the root agent (and its referenced sub-agents) directly from YAML
     root_agent = load_agent_from_yaml("root_agent.yaml")

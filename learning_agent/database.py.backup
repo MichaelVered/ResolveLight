@@ -471,6 +471,9 @@ class LearningDatabase:
         ]
         
         invoice_data = None
+        po_number = None
+        invoice_filename = None
+        
         for invoice_dir in invoice_dirs:
             if os.path.exists(invoice_dir):
                 for file in os.listdir(invoice_dir):
@@ -480,6 +483,15 @@ class LearningDatabase:
                                 data = json.load(f)
                                 if data.get('invoice_id') == invoice_id:
                                     invoice_data = data
+                                    invoice_filename = file
+                                    # Try to extract PO number from filename first (more reliable)
+                                    import re
+                                    po_match = re.search(r'PO-(\d{4}-\d+[A-Z]?)', file)
+                                    if po_match:
+                                        po_number = f"PO-{po_match.group(1)}"
+                                    else:
+                                        # Fallback to invoice data
+                                        po_number = data.get('purchase_order_number') or data.get('po_number')
                                     break
                         except:
                             continue
@@ -489,103 +501,63 @@ class LearningDatabase:
         if invoice_data:
             result["invoice"] = invoice_data
             
-            # Check log files for PO information
-            po_number = self._extract_po_from_logs(invoice_id)
+            # If we have a PO number, try to find the PO file
             if po_number:
-                # Find PO file
-                po_data = self._find_po_data(po_number, repo_root)
-                if po_data:
-                    result["po_item"] = po_data
-                    
-                    # Find related contract
-                    contract_id = po_data.get('contract_id')
+                po_dirs = [
+                    os.path.join(repo_root, "json_files", "POs"),
+                    os.path.join(repo_root, "json_files", "golden_invoices"),
+                    os.path.join(repo_root, "json_files", "silver_invoices")
+                ]
+                
+                for po_dir in po_dirs:
+                    if os.path.exists(po_dir):
+                        for file in os.listdir(po_dir):
+                            if file.endswith('.json'):
+                                try:
+                                    with open(os.path.join(po_dir, file), 'r') as f:
+                                        po_data = json.load(f)
+                                        # Check if this PO file contains our PO number
+                                        if self._po_contains_number(po_data, po_number):
+                                            # If it's a file with multiple POs, find the specific one
+                                            if 'purchase_orders' in po_data and isinstance(po_data['purchase_orders'], list):
+                                                for po in po_data['purchase_orders']:
+                                                    if isinstance(po, dict) and po.get('po_number') == po_number:
+                                                        result["po_item"] = po
+                                                        break
+                                            else:
+                                                result["po_item"] = po_data
+                                            break
+                                except:
+                                    continue
+                        if result["po_item"]:
+                            break
+                
+                # If we found a PO, try to find the related contract
+                if result["po_item"]:
+                    contract_id = result["po_item"].get('contract_id')
                     if contract_id:
-                        contract_data = self._find_contract_data(contract_id, repo_root)
-                        if contract_data:
-                            result["contract"] = contract_data
+                        contract_dirs = [
+                            os.path.join(repo_root, "json_files", "contracts"),
+                            os.path.join(repo_root, "json_files", "golden_invoices"),
+                            os.path.join(repo_root, "json_files", "silver_invoices")
+                        ]
+                        
+                        for contract_dir in contract_dirs:
+                            if os.path.exists(contract_dir):
+                                for file in os.listdir(contract_dir):
+                                    if file.endswith('.json'):
+                                        try:
+                                            with open(os.path.join(contract_dir, file), 'r') as f:
+                                                contract_data = json.load(f)
+                                                if contract_data.get('contract_id') == contract_id:
+                                                    result["contract"] = contract_data
+                                                    break
+                                        except:
+                                            continue
+                                if result["contract"]:
+                                    break
         
         return result
-    
-    def _extract_po_from_logs(self, invoice_id: str) -> str:
-        """Extract PO number from log files for the given invoice."""
-        import os
-        import re
-        
-        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        log_dir = os.path.join(repo_root, "system_logs")
-        
-        if not os.path.exists(log_dir):
-            return None
-            
-        for log_file in os.listdir(log_dir):
-            if log_file.endswith('.log'):
-                log_path = os.path.join(log_dir, log_file)
-                try:
-                    with open(log_path, 'r') as f:
-                        content = f.read()
-                        # Look for pattern: INVOICE: INV-XXX-XXX (PO: PO-XXX, Amount: $X,XXX.XX)
-                        pattern = rf'INVOICE:\s+{re.escape(invoice_id)}\s+\(PO:\s+([^,]+),'
-                        match = re.search(pattern, content)
-                        if match:
-                            return match.group(1).strip()
-                except:
-                    continue
-        return None
-    
-    def _find_po_data(self, po_number: str, repo_root: str) -> dict:
-        """Find PO data by PO number."""
-        import json
-        import os
-        
-        po_dirs = [
-            os.path.join(repo_root, "json_files", "POs"),
-            os.path.join(repo_root, "json_files", "golden_invoices"),
-            os.path.join(repo_root, "json_files", "silver_invoices")
-        ]
-        
-        for po_dir in po_dirs:
-            if os.path.exists(po_dir):
-                for file in os.listdir(po_dir):
-                    if file.endswith('.json'):
-                        try:
-                            with open(os.path.join(po_dir, file), 'r') as f:
-                                po_data = json.load(f)
-                                # Check if this PO file contains our PO number
-                                if self._po_contains_number(po_data, po_number):
-                                    # If it's a file with multiple POs, find the specific one
-                                    if 'purchase_orders' in po_data and isinstance(po_data['purchase_orders'], list):
-                                        for po in po_data['purchase_orders']:
-                                            if isinstance(po, dict) and po.get('po_number') == po_number:
-                                                return po
-                                    else:
-                                        return po_data
-                        except:
-                            continue
-        return None
-    
-    def _find_contract_data(self, contract_id: str, repo_root: str) -> dict:
-        """Find contract data by contract ID."""
-        import json
-        import os
-        
-        contract_dirs = [
-            os.path.join(repo_root, "json_files", "contracts"),
-            os.path.join(repo_root, "json_files", "golden_invoices"),
-            os.path.join(repo_root, "json_files", "silver_invoices")
-        ]
-        
-        for contract_dir in contract_dirs:
-            if os.path.exists(contract_dir):
-                for file in os.listdir(contract_dir):
-                    if file.endswith('.json'):
-                        try:
-                            with open(os.path.join(contract_dir, file), 'r') as f:
-                                contract_data = json.load(f)
-                                if contract_data.get('contract_id') == contract_id:
-                                    return contract_data
-                        except:
-                            continue
-        return None
     
     def _po_contains_number(self, po_data: dict, po_number: str) -> bool:
         """Check if a PO data structure contains the given PO number."""
@@ -599,6 +571,12 @@ class LearningDatabase:
             if 'purchase_orders' in po_data and isinstance(po_data['purchase_orders'], list):
                 for po in po_data['purchase_orders']:
                     if isinstance(po, dict) and po.get('po_number') == po_number:
+                        return True
+            
+            # Check if it's in a list of items
+            if 'items' in po_data:
+                for item in po_data['items']:
+                    if isinstance(item, dict) and item.get('po_number') == po_number:
                         return True
         return False
 

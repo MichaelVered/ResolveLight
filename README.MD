@@ -18,6 +18,8 @@ ResolveLight is an advanced **agentic workflow system** for automated invoice-to
 - **📋 Flexible Line Item Validation**: Handles real-world scenarios with missing line items
 - **🔗 Three-Way Matching**: Invoice ↔ PO ↔ Contract validation
 - **📈 Audit Trails**: Complete logging and compliance tracking
+- **🔍 Smart Related Data**: Intelligent PO and contract lookup based on log file references
+- **🌐 Expert Review Dashboard**: Web-based interface for exception review and approval
 
 ## 🏗️ Architecture
 
@@ -94,15 +96,28 @@ ResolveLight/
 │   ├── supplier_match_tool.py     # Supplier validation
 │   ├── simple_overbilling_tool.py  # Billing amount validation
 │   └── date_check_tool.py         # Date validation
+├── 📁 web_gui/                    # Web-based expert review dashboard
+│   ├── human_driven_app.py        # Flask web application
+│   └── templates/                 # HTML templates
+│       ├── human_driven_dashboard.html
+│       └── human_driven_base.html
+├── 📁 learning_agent/             # Learning and database components
+│   ├── database.py                # SQLite database with smart related data lookup
+│   ├── log_analyzer.py            # Log file analysis
+│   └── human_driven_learning_agent.py
 ├── 📁 json_files/                 # Sample data
 │   ├── golden_invoices/           # Golden dataset invoice JSON files
 │   ├── POs/                       # Purchase order files
 │   └── contracts/                 # Contract files
 ├── 📁 system_logs/                # Generated logs
 │   ├── payments.log               # Approved payments
-│   └── exceptions_ledger.log       # Exception tracking
+│   ├── exceptions_ledger.log       # Exception tracking
+│   └── queue_*.log                # Queue-specific exception logs
+├── 📁 utilities/                  # Testing and maintenance scripts
+│   ├── test_golden_set.py         # Comprehensive test suite
+│   └── process_bronze_invoices.py # Batch processing script
 ├── root_agent.yaml               # Main workflow configuration
-├── runner.py                     # System entry point
+├── runnerLog.py                  # System entry point with logging
 └── README.md                     # This file
 ```
 
@@ -195,6 +210,54 @@ Each queue generates detailed context for human reviewers:
 - **Price Discrepancies**: Specific line item issues
 - **Low Confidence**: Matching analysis and recommendations
 - **High Value**: Value thresholds and approval requirements
+
+## 🌐 Expert Review Dashboard
+
+### Web-Based Exception Management
+
+ResolveLight includes a comprehensive web dashboard for expert review and exception management:
+
+**Features:**
+- **📋 Exception Overview**: Real-time view of all pending exceptions
+- **🔍 Detailed Review**: Click-to-review individual exceptions with full context
+- **📊 Smart Related Data**: Automatically displays PO and contract information when referenced in log files
+- **✅ Expert Actions**: Approve, reject, or override exceptions with detailed feedback
+- **📈 Analytics**: System statistics and exception trends
+
+**Access the Dashboard:**
+```bash
+# Start the web application
+python web_gui/human_driven_app.py
+
+# Open in browser
+http://localhost:5001
+```
+
+### Smart Related Data Lookup
+
+The system intelligently provides related data based on log file references:
+
+**For Price Discrepancy Exceptions:**
+- Automatically extracts PO numbers from log entries (e.g., `INVOICE: INV-AUR-2025-001 (PO: PO-2025-310A)`)
+- Locates and displays complete PO data
+- Finds and shows related contract information
+- Enables comprehensive price comparison and validation
+
+**For Other Exceptions:**
+- Shows "Not referenced in log files" when PO/contract data isn't explicitly mentioned
+- Prevents false correlations and maintains data integrity
+- Focuses on log-based evidence rather than assumptions
+
+**Example Log-Based Lookup:**
+```
+QUEUE: PRICE_DISCREPANCIES
+INVOICE: INV-AUR-2025-001 (PO: PO-2025-310A, Amount: $9,500.00)
+LINE ITEM DISCREPANCIES:
+  - Item AUR-001: Complete ML model training and deployment
+    * unit_price: 9500.0 vs PO 7500.0
+```
+
+The system extracts `PO-2025-310A` from this log entry and automatically provides the complete PO and contract data for expert review.
 
 ## 📊 Usage Examples
 
