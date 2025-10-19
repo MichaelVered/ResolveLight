@@ -1,0 +1,388 @@
+=== EXCEPTION FORMAT SPECIFICATION ===
+VERSION: 1.0
+PURPOSE: Standardized exception logging format for ResolveLight system
+LAST_UPDATED: 2025-01-20
+
+=== EXCEPTION_START ===
+VERSION: 1.0
+EXCEPTION_ID: EXC-{12-char-hex}
+STATUS: {OPEN|IN_PROGRESS|RESOLVED|CLOSED}
+QUEUE: {QUEUE_NAME}
+PRIORITY: {HIGH|MEDIUM|LOW}
+EXCEPTION_TYPE: {VALIDATION_FAILED|DUPLICATE|MISSING_DATA|LOW_CONFIDENCE|PRICE_DISCREPANCY|BILLING_DISCREPANCY|DATE_DISCREPANCY|HIGH_VALUE_APPROVAL|SUPPLIER_MISMATCH|GENERAL}
+TIMESTAMP: {ISO-8601-timestamp}
+INVOICE_ID: {invoice_id}
+PO_NUMBER: {PO_number}
+AMOUNT: {total_amount}
+SUPPLIER: {supplier}
+ROUTING_REASON: {reason for failure}
+CONFIDENCE_SCORE: {0.0-1.0}  # Optional, for matching issues
+MANAGER_APPROVAL_REQUIRED: YES|NO
+
+CONTEXT:
+{queue-specific context details}
+
+SUGGESTED_ACTIONS:
+{actionable recommendations}
+
+METADATA:
+{system-specific data, tool versions, etc.}
+=== EXCEPTION_END ===
+
+=== FIELD SPECIFICATIONS ===
+
+REQUIRED FIELDS:
+- VERSION: Format version for schema evolution (string)
+- EXCEPTION_ID: Unique identifier, format EXC-{12-char-hex} (string)
+- STATUS: Current exception state (enum: OPEN|IN_PROGRESS|RESOLVED|CLOSED)
+- QUEUE: Target queue name (enum: price_discrepancies|billing_discrepancies|date_discrepancies|general_exceptions|high_value_approval|low_confidence_matches|missing_data|supplier_mismatch)
+- PRIORITY: Processing priority (enum: HIGH|MEDIUM|LOW)
+- EXCEPTION_TYPE: Category of exception (enum: see EXCEPTION_TYPE values above)
+- TIMESTAMP: ISO-8601 timestamp (string, format: YYYY-MM-DDTHH:MM:SSZ)
+- INVOICE_ID: Invoice identifier (string)
+- PO_NUMBER: Purchase order number (string)
+- AMOUNT: Total invoice amount (string, format: $X,XXX.XX)
+- SUPPLIER: Supplier name (string)
+- ROUTING_REASON: Explanation for queue routing (string)
+- MANAGER_APPROVAL_REQUIRED: Whether manager approval needed (enum: YES|NO)
+
+OPTIONAL FIELDS:
+- CONFIDENCE_SCORE: Matching confidence for low_confidence_matches queue (float, range: 0.0-1.0)
+
+CONTEXT SECTION:
+- Multi-line section for queue-specific details
+- Format: Free-form text with structured sub-sections
+- Common patterns:
+  * LINE ITEM DISCREPANCIES: (for price_discrepancies)
+  * MATCHING CONFIDENCE: (for low_confidence_matches)
+  * BILLING ISSUES: (for billing_discrepancies)
+  * MISSING DATA: (for missing_data)
+
+SUGGESTED_ACTIONS SECTION:
+- Multi-line section with actionable recommendations
+- Format: Bullet points with specific steps
+- Common patterns:
+  * Review specific issues
+  * Contact supplier if needed
+  * Verify PO/contract details
+  * Approve manually if valid
+
+METADATA SECTION:
+- Optional system-specific information
+- Format: Key-value pairs or structured data
+- Common fields:
+  * tool_version: Version of validation tools used
+  * processing_time: Time taken to process invoice
+  * system_version: ResolveLight system version
+
+=== PARSING GUIDELINES ===
+
+DELIMITERS:
+- Exception start: "=== EXCEPTION_START ==="
+- Exception end: "=== EXCEPTION_END ==="
+- Field separator: ": "
+- Section headers: "CONTEXT:", "SUGGESTED_ACTIONS:", "METADATA:"
+
+PARSING RULES:
+1. Each exception is bounded by start/end delimiters
+2. Fields are single-line with format "FIELD_NAME: VALUE"
+3. Sections (CONTEXT, SUGGESTED_ACTIONS, METADATA) are multi-line
+4. Empty lines within sections are preserved
+5. Missing optional fields should be handled gracefully
+6. Field order should be maintained for consistency
+
+ERROR HANDLING:
+- Invalid field values should be logged but not cause parsing failure
+- Missing required fields should raise parsing errors
+- Malformed timestamps should be flagged but not block processing
+- Unknown queue names should be treated as "general_exceptions"
+
+=== SOFTWARE PARSING ALGORITHMS ===
+
+=== EXCEPTION LOG PARSING ALGORITHM ===
+
+PARSING STATE MACHINE:
+1. SCAN_FOR_START: Look for "=== EXCEPTION_START ==="
+2. PARSE_HEADER: Extract single-line fields until empty line
+3. PARSE_CONTEXT: Read lines until "SUGGESTED_ACTIONS:" or "METADATA:"
+4. PARSE_SUGGESTED_ACTIONS: Read lines until "METADATA:" or "=== EXCEPTION_END ==="
+5. PARSE_METADATA: Read lines until "=== EXCEPTION_END ==="
+6. VALIDATE_AND_STORE: Validate required fields and store exception
+
+REGEX PATTERNS:
+- Exception start: ^=== EXCEPTION_START ===$
+- Exception end: ^=== EXCEPTION_END ===$
+- Field line: ^([A-Z_]+): (.+)$
+- Section header: ^(CONTEXT|SUGGESTED_ACTIONS|METADATA):$
+
+PARSING PSEUDOCODE:
+```
+function parse_exception_log(file_path):
+    exceptions = []
+    current_exception = null
+    current_section = null
+    
+    for line in read_lines(file_path):
+        if line.strip() == "=== EXCEPTION_START ===":
+            current_exception = new_exception()
+            current_section = "HEADER"
+        elif line.strip() == "=== EXCEPTION_END ===":
+            if current_exception:
+                validate_required_fields(current_exception)
+                exceptions.append(current_exception)
+                current_exception = null
+        elif current_exception:
+            if line.strip() == "CONTEXT:":
+                current_section = "CONTEXT"
+            elif line.strip() == "SUGGESTED_ACTIONS:":
+                current_section = "SUGGESTED_ACTIONS"
+            elif line.strip() == "METADATA:":
+                current_section = "METADATA"
+            elif current_section == "HEADER" and ":" in line:
+                field, value = split_line_at_first_colon(line)
+                current_exception[field] = value.strip()
+            else:
+                current_exception[current_section] += line + "\n"
+    
+    return exceptions
+```
+
+FIELD EXTRACTION RULES:
+- Split at first colon ": " to separate field name from value
+- Trim whitespace from both field name and value
+- Handle empty values as null/empty string
+- Preserve line breaks in multi-line sections
+
+=== PAYMENTS LOG PARSING ALGORITHM ===
+
+PARSING STATE MACHINE:
+1. SCAN_FOR_APPROVAL: Look for "[INFO] [timestamp] Invoice {id} approved"
+2. PARSE_PAYMENT_ITEMS: Read indented payment_item lines until next approval or EOF
+
+REGEX PATTERNS:
+- Approval line: ^\[INFO\] \[([^\]]+)\] Invoice ([^ ]+) approved\. Routing to Payment System\.$
+- Payment item: ^    payment_item: invoice_id=([^,]+), po_number=([^,]+), item_id=([^,]+), description=([^,]+), amount=([0-9.]+)$
+
+PARSING PSEUDOCODE:
+```
+function parse_payments_log(file_path):
+    payments = []
+    current_payment = null
+    
+    for line in read_lines(file_path):
+        if line.startswith("[INFO]") and "approved" in line:
+            if current_payment:
+                payments.append(current_payment)
+            current_payment = parse_approval_line(line)
+        elif line.startswith("    payment_item:"):
+            if current_payment:
+                item = parse_payment_item_line(line)
+                current_payment.items.append(item)
+    
+    if current_payment:
+        payments.append(current_payment)
+    
+    return payments
+```
+
+=== PROCESSED INVOICES LOG PARSING ALGORITHM ===
+
+PARSING STATE MACHINE:
+1. SCAN_FOR_PROCESSED: Look for "PROCESSED: " prefix
+2. EXTRACT_JSON: Parse JSON after prefix
+3. VALIDATE_JSON: Ensure valid JSON structure
+
+REGEX PATTERNS:
+- Processed line: ^PROCESSED: (.+)$
+
+PARSING PSEUDOCODE:
+```
+function parse_processed_invoices_log(file_path):
+    invoices = []
+    
+    for line in read_lines(file_path):
+        if line.startswith("PROCESSED: "):
+            json_str = line[10:]  # Remove "PROCESSED: " prefix
+            try:
+                invoice_data = json.parse(json_str)
+                invoices.append(invoice_data)
+            except json.ParseError:
+                log_error("Invalid JSON in processed invoice: " + line)
+    
+    return invoices
+```
+
+=== ERROR HANDLING SPECIFICATIONS ===
+
+EXCEPTION LOG ERRORS:
+- Missing EXCEPTION_START: Skip malformed entry, log warning
+- Missing EXCEPTION_END: Treat as incomplete, log error
+- Invalid field format: Store as raw string, flag for review
+- Missing required field: Raise parsing error, stop processing
+- Invalid timestamp format: Store as-is, flag for review
+- Unknown queue name: Map to "general_exceptions", log warning
+
+PAYMENTS LOG ERRORS:
+- Malformed approval line: Skip entry, log warning
+- Invalid payment item format: Skip item, log warning
+- Missing invoice context: Create orphaned item entry
+- Invalid amount format: Store as string, flag for review
+
+PROCESSED INVOICES LOG ERRORS:
+- Invalid JSON: Skip entry, log error with line number
+- Missing required fields: Store partial data, flag for review
+- Type mismatches: Convert to string, flag for review
+
+=== EDGE CASE EXAMPLES ===
+
+EXCEPTION LOG EDGE CASES:
+```
+=== EXCEPTION_START ===
+VERSION: 1.0
+EXCEPTION_ID: EXC-123456789ABC
+STATUS: OPEN
+QUEUE: price_discrepancies
+PRIORITY: HIGH
+EXCEPTION_TYPE: PRICE_DISCREPANCY
+TIMESTAMP: 2025-10-19T13:57:50Z
+INVOICE_ID: INV-ATL-2025-006
+PO_NUMBER: PO-2025-302A
+AMOUNT: $7,800.50
+SUPPLIER: CodeCraft Labs LLC
+ROUTING_REASON: Line item validation failed
+CONFIDENCE_SCORE: 0.85
+MANAGER_APPROVAL_REQUIRED: YES
+
+CONTEXT:
+LINE ITEM DISCREPANCIES:
+  - Item ATL-001: Event ingestion setup
+    * unit_price: 150.02 vs PO 150.0
+    * variance: $0.02 (0.013%)
+
+SUGGESTED_ACTIONS:
+  - Review the specific issues listed above
+  - Contact supplier if data discrepancies found
+  - Verify PO and contract details if matching issues
+  - Approve manually if all checks pass after review
+
+METADATA:
+  tool_version: 1.2.3
+  processing_time: 0.45s
+  system_version: 2.1.0
+=== EXCEPTION_END ===
+```
+
+PAYMENTS LOG EDGE CASES:
+```
+[INFO] [2025-10-19T13:45:00Z] Invoice INV-ATL-2025-001 approved. Routing to Payment System.
+    payment_item: invoice_id=INV-ATL-2025-001, po_number=PO-2025-302A, item_id=ATL-001, description=Event ingestion setup, amount=4500.0
+    payment_item: invoice_id=INV-ATL-2025-001, po_number=PO-2025-302A, item_id=ATL-002, description=Data validation, amount=1500.0
+    payment_item: invoice_id=INV-ATL-2025-001, po_number=PO-2025-302A, item_id=ATL-003, description=System integration, amount=2000.0
+```
+
+PROCESSED INVOICES LOG EDGE CASES:
+```
+PROCESSED: {"timestamp": "2025-10-19T13:57:50Z", "invoice_id": "INV-ATL-2025-006", "supplier_name": "CodeCraft Labs LLC", "vendor_id": "V-60111", "invoice_number": "INV-ATL-2025-006", "billing_amount": 7800.5, "po_number": "PO-2025-302A", "processing_result": "REJECTED", "line_items_count": 3, "issue_date": "2025-02-10", "exception_id": "EXC-851439E26698", "routing_queue": "price_discrepancies", "priority": "high", "requires_manager_approval": true, "routing_reason": "Line item validation failed"}
+```
+
+=== EXAMPLE EXCEPTION ===
+
+=== EXCEPTION_START ===
+VERSION: 1.0
+EXCEPTION_ID: EXC-7C827F485D5B
+STATUS: OPEN
+QUEUE: price_discrepancies
+PRIORITY: HIGH
+EXCEPTION_TYPE: PRICE_DISCREPANCY
+TIMESTAMP: 2025-10-18T18:52:07Z
+INVOICE_ID: INV-ATL-2025-006
+PO_NUMBER: PO-2025-302A
+AMOUNT: $7,800.50
+SUPPLIER: Organizing Supplier Corp
+ROUTING_REASON: Line item validation failed
+MANAGER_APPROVAL_REQUIRED: YES
+
+CONTEXT:
+LINE ITEM DISCREPANCIES:
+  - Item ATL-001: Event ingestion setup
+    * unit_price: 150.02 vs PO 150.0
+
+SUGGESTED_ACTIONS:
+  - Review the specific issues listed above
+  - Contact supplier if data discrepancies found
+  - Verify PO and contract details if matching issues
+  - Approve manually if all checks pass after review
+
+METADATA:
+  tool_version: 1.2.3
+  processing_time: 0.45s
+  system_version: 2.1.0
+=== EXCEPTION_END ===
+
+=== END OF SPECIFICATION ===
+
+=== ADDITIONAL LOG FORMATS ===
+
+=== PAYMENTS LOG FORMAT ===
+PURPOSE: Log approved invoices and payment items for audit trail
+FILE: payments.log
+FORMAT: Simple text format for approved payments
+
+PAYMENT APPROVAL ENTRY:
+[INFO] [timestamp] Invoice {invoice_id} approved. Routing to Payment System.
+
+PAYMENT ITEM ENTRIES:
+    payment_item: invoice_id={invoice_id}, po_number={po_number}, item_id={item_id}, description={description}, amount={amount}
+
+FIELD SPECIFICATIONS:
+- timestamp: ISO-8601 timestamp (format: YYYY-MM-DDTHH:MM:SSZ)
+- invoice_id: Invoice identifier (string)
+- po_number: Purchase order number (string)
+- item_id: Line item identifier (string)
+- description: Line item description (string)
+- amount: Line item amount (number)
+
+EXAMPLE PAYMENTS LOG:
+[INFO] [2025-10-19T13:45:00Z] Invoice INV-ATL-2025-001 approved. Routing to Payment System.
+    payment_item: invoice_id=INV-ATL-2025-001, po_number=PO-2025-302A, item_id=ATL-001, description=Event ingestion setup, amount=4500.0
+    payment_item: invoice_id=INV-ATL-2025-001, po_number=PO-2025-302A, item_id=ATL-002, description=Data validation, amount=1500.0
+
+=== PROCESSED INVOICES LOG FORMAT ===
+PURPOSE: Comprehensive audit trail of all processed invoices
+FILE: processed_invoices.log
+FORMAT: JSON format for structured data
+
+PROCESSED INVOICE ENTRY:
+PROCESSED: {"timestamp": "...", "invoice_id": "...", "supplier_name": "...", ...}
+
+FIELD SPECIFICATIONS:
+- timestamp: ISO-8601 timestamp (format: YYYY-MM-DDTHH:MM:SSZ)
+- invoice_id: Invoice identifier (string)
+- supplier_name: Supplier company name (string)
+- vendor_id: Supplier vendor ID (string)
+- invoice_number: Invoice number (string)
+- billing_amount: Total invoice amount (number)
+- po_number: Purchase order number (string)
+- processing_result: Final result (APPROVED|PENDING_APPROVAL|REJECTED)
+- line_items_count: Number of line items (integer)
+- issue_date: Invoice issue date (string)
+- exception_id: Exception ID if rejected (string, optional)
+- routing_queue: Target queue if rejected (string, optional)
+- priority: Processing priority (string, optional)
+- requires_manager_approval: Whether manager approval needed (boolean, optional)
+- routing_reason: Reason for routing (string, optional)
+
+EXAMPLE PROCESSED INVOICES LOG:
+PROCESSED: {"timestamp": "2025-10-19T13:57:50Z", "invoice_id": "INV-ATL-2025-006", "supplier_name": "CodeCraft Labs LLC", "vendor_id": "V-60111", "invoice_number": "INV-ATL-2025-006", "billing_amount": 7800.5, "po_number": "PO-2025-302A", "processing_result": "REJECTED", "line_items_count": 3, "issue_date": "2025-02-10", "exception_id": "EXC-851439E26698", "routing_queue": "price_discrepancies", "priority": "high", "requires_manager_approval": true, "routing_reason": "Line item validation failed"}
+
+=== LOG FILE SUMMARY ===
+
+EXCEPTION LOGS (Standardized Format):
+- queue_*.log files: Specific exception queues
+- exceptions_ledger.log: All exceptions
+
+AUDIT LOGS (Custom Formats):
+- payments.log: Approved invoices and payment items
+- processed_invoices.log: All processed invoices (JSON format)
+
+=== END OF ADDITIONAL FORMATS ===
