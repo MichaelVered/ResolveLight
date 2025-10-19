@@ -120,9 +120,6 @@ class FlexibleExceptionParser:
         """Parse all exception logs with flexible schema detection."""
         exceptions = []
         
-        # Parse main exceptions ledger
-        exceptions.extend(self._parse_exceptions_ledger())
-        
         # Parse queue-specific logs
         queue_files = [
             "queue_missing_data.log",
@@ -138,78 +135,11 @@ class FlexibleExceptionParser:
         for queue_file in queue_files:
             exceptions.extend(self._parse_queue_log(queue_file))
         
-        # Deduplicate by exception_id, preferring more complete data
-        return self._deduplicate_exceptions(exceptions)
-
-    def _parse_exceptions_ledger(self) -> List[FlexibleException]:
-        """Parse the main exceptions ledger with flexible format detection."""
-        exceptions = []
-        ledger_path = os.path.join(self.logs_dir, "exceptions_ledger.log")
-        
-        if not os.path.exists(ledger_path):
-            return exceptions
-            
-        with open(ledger_path, 'r') as f:
-            for line_num, line in enumerate(f, 1):
-                if line.strip():
-                    exception = self._parse_ledger_line(line.strip(), line_num)
-                    if exception:
-                        exceptions.append(exception)
-        
         return exceptions
 
-    def _parse_ledger_line(self, line: str, line_num: int) -> Optional[FlexibleException]:
-        """Parse a single line from the exceptions ledger with flexible format detection."""
-        # Try different ledger formats
-        patterns = [
-            # Format: [EXCEPTION] [timestamp] id=ID status=STATUS type=TYPE invoice_id=INVOICE queue=QUEUE
-            r'\[EXCEPTION\]\s*\[([^\]]+)\]\s*id=([^\s]+)\s*status=([^\s]+)\s*type=([^\s]+)\s*invoice_id=([^\s]+)\s*queue=([^\s]+)',
-            # Format: EXCEPTION_ID:ID INVOICE_ID:INVOICE STATUS:STATUS TYPE:TYPE QUEUE:QUEUE TIMESTAMP:TIME
-            r'EXCEPTION_ID:([^\s]+)\s+INVOICE_ID:([^\s]+)\s+STATUS:([^\s]+)\s+TYPE:([^\s]+)\s+QUEUE:([^\s]+)\s+TIMESTAMP:([^\s]+)',
-            # JSON format
-            r'\{.*"exception_id".*\}',
-            # CSV format
-            r'[^,]+,[^,]+,[^,]+,[^,]+,[^,]+'
-        ]
-        
-        for pattern in patterns:
-            match = re.match(pattern, line)
-            if match:
-                groups = match.groups()
-                if len(groups) >= 6:  # Standard format
-                    timestamp, exc_id, status, exc_type, invoice_id, queue = groups[:6]
-                elif len(groups) == 6:  # Alternative format
-                    exc_id, invoice_id, status, exc_type, queue, timestamp = groups
-                else:
-                    continue
-                
-                return FlexibleException(
-                    exception_id=exc_id,
-                    invoice_id=invoice_id,
-                    queue=queue,
-                    timestamp=timestamp,
-                    raw_data={'line': line, 'line_number': line_num},
-                    structured_fields={
-                        'status': status,
-                        'type': exc_type,
-                        'timestamp': timestamp
-                    },
-                    unstructured_text=[line],
-                    context={'source': 'ledger', 'line_number': line_num}
-                )
-        
-        # Try JSON parsing
-        try:
-            data = json.loads(line)
-            if 'exception_id' in data and 'invoice_id' in data:
-                return self._create_exception_from_dict(data, 'ledger')
-        except:
-            pass
-        
-        return None
 
     def _parse_queue_log(self, queue_file: str) -> List[FlexibleException]:
-        """Parse a specific queue log file with flexible format detection."""
+        """Parse a specific queue log file with canonical format support."""
         exceptions = []
         queue_path = os.path.join(self.logs_dir, queue_file)
         
@@ -222,11 +152,152 @@ class FlexibleExceptionParser:
             content = f.read()
             
         if content.strip():
-            exception = self._parse_flexible_content(content, queue_name)
-            if exception:
-                exceptions.append(exception)
+            # Check if this is canonical format
+            if "=== EXCEPTION_START ===" in content:
+                exception_blocks = self._split_canonical_exception_blocks(content)
+                for block in exception_blocks:
+                    exception = self._parse_canonical_exception_block(block, queue_name)
+                    if exception:
+                        exceptions.append(exception)
+            else:
+                # Fallback to flexible parsing for old format
+                exception = self._parse_flexible_content(content, queue_name)
+                if exception:
+                    exceptions.append(exception)
         
         return exceptions
+
+    def _split_canonical_exception_blocks(self, content: str) -> List[str]:
+        """Split content into individual exception blocks using canonical format delimiters."""
+        lines = content.strip().split('\n')
+        blocks = []
+        current_block = []
+        in_exception = False
+        
+        for line in lines:
+            if line.strip() == "=== EXCEPTION_START ===":
+                # Start of a new exception
+                if current_block and in_exception:
+                    # Save the previous block
+                    blocks.append('\n'.join(current_block))
+                current_block = [line]
+                in_exception = True
+            elif line.strip() == "=== EXCEPTION_END ===":
+                # End of current exception
+                if in_exception:
+                    current_block.append(line)
+                    blocks.append('\n'.join(current_block))
+                    current_block = []
+                    in_exception = False
+            elif in_exception:
+                current_block.append(line)
+        
+        return blocks
+
+    def _parse_canonical_exception_block(self, block: str, queue_name: str) -> Optional[FlexibleException]:
+        """Parse a single canonical exception block from a queue log."""
+        lines = block.strip().split('\n')
+        
+        # Initialize structured data
+        structured_fields = {}
+        unstructured_text = []
+        context = {}
+        sections = {}
+        
+        current_section = None
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            unstructured_text.append(line)
+            
+            # Skip delimiters
+            if line in ["=== EXCEPTION_START ===", "=== EXCEPTION_END ==="]:
+                continue
+                
+            # Parse header fields
+            if ":" in line and not line.startswith("CONTEXT:") and not line.startswith("SUGGESTED_ACTIONS:") and not line.startswith("METADATA:"):
+                field_name, field_value = line.split(":", 1)
+                field_name = field_name.strip()
+                field_value = field_value.strip()
+                structured_fields[field_name.lower()] = field_value
+                
+                # Map to common field names
+                if field_name == "EXCEPTION_ID":
+                    structured_fields['exception_id'] = field_value
+                elif field_name == "INVOICE_ID":
+                    structured_fields['invoice_id'] = field_value
+                elif field_name == "PO_NUMBER":
+                    structured_fields['po_number'] = field_value
+                elif field_name == "AMOUNT":
+                    structured_fields['amount'] = field_value
+                elif field_name == "SUPPLIER":
+                    structured_fields['supplier'] = field_value
+                elif field_name == "ROUTING_REASON":
+                    structured_fields['routing_reason'] = field_value
+                elif field_name == "TIMESTAMP":
+                    structured_fields['timestamp'] = field_value
+                elif field_name == "PRIORITY":
+                    structured_fields['priority'] = field_value
+                elif field_name == "EXCEPTION_TYPE":
+                    structured_fields['exception_type'] = field_value
+                elif field_name == "STATUS":
+                    structured_fields['status'] = field_value
+                elif field_name == "CONFIDENCE_SCORE" and field_value != "N/A":
+                    try:
+                        structured_fields['confidence_score'] = float(field_value)
+                    except ValueError:
+                        structured_fields['confidence_score'] = field_value
+                elif field_name == "MANAGER_APPROVAL_REQUIRED":
+                    structured_fields['manager_approval_required'] = field_value.upper() == "YES"
+            
+            # Handle sections
+            elif line == "CONTEXT:":
+                current_section = "context"
+                sections["context"] = []
+            elif line == "SUGGESTED_ACTIONS:":
+                current_section = "suggested_actions"
+                sections["suggested_actions"] = []
+            elif line == "METADATA:":
+                current_section = "metadata"
+                sections["metadata"] = []
+            elif current_section == "context" and line:
+                sections["context"].append(line)
+            elif current_section == "suggested_actions" and line:
+                if line.startswith("- "):
+                    sections["suggested_actions"].append(line[2:].strip())
+                else:
+                    sections["suggested_actions"].append(line)
+            elif current_section == "metadata" and line and ":" in line:
+                meta_key, meta_value = line.split(":", 1)
+                sections["metadata"][meta_key.strip()] = meta_value.strip()
+        
+        # Extract essential fields
+        exception_id = structured_fields.get('exception_id', '')
+        invoice_id = structured_fields.get('invoice_id', '')
+        
+        if not exception_id or not invoice_id:
+            return None
+        
+        # Create context from sections and structured fields
+        context.update(sections)
+        context['queue'] = queue_name
+        context['source'] = 'canonical_queue_log'
+        
+        return FlexibleException(
+            exception_id=exception_id,
+            invoice_id=invoice_id,
+            queue=queue_name,
+            timestamp=structured_fields.get('timestamp', datetime.now().isoformat()),
+            raw_data={'content': block, 'lines': lines},
+            structured_fields=structured_fields,
+            unstructured_text=unstructured_text,
+            context=context,
+            priority=structured_fields.get('priority'),
+            status=structured_fields.get('status', 'OPEN')
+        )
 
     def _parse_flexible_content(self, content: str, queue_name: str) -> Optional[FlexibleException]:
         """Parse content with flexible schema detection."""

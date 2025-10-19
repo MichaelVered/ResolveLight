@@ -38,9 +38,6 @@ class ExceptionParser:
         """Parse all exception logs and return list of exceptions"""
         exceptions = []
         
-        # Parse main exceptions ledger
-        exceptions.extend(self._parse_exceptions_ledger())
-        
         # Parse queue-specific logs
         queue_files = [
             "queue_missing_data.log",
@@ -56,127 +53,39 @@ class ExceptionParser:
         for queue_file in queue_files:
             exceptions.extend(self._parse_queue_log(queue_file))
         
-        # Deduplicate by exception_id, preferring queue log data over ledger data
-        seen_ids = {}
-        for exc in exceptions:
-            if exc.exception_id not in seen_ids:
-                seen_ids[exc.exception_id] = exc
-            else:
-                # If we already have this exception, prefer the one with more data
-                existing = seen_ids[exc.exception_id]
-                # Prioritize entries with raw_data, then other detailed fields
-                if exc.raw_data or (exc.po_number or exc.amount or exc.supplier):
-                    # This exception has more data, use it instead
-                    seen_ids[exc.exception_id] = exc
-        
-        deduplicated = list(seen_ids.values())
-            
-        return deduplicated
-    
-    def _parse_exceptions_ledger(self) -> List[SystemException]:
-        """Parse the main exceptions ledger"""
-        exceptions = []
-        ledger_path = os.path.join(self.logs_dir, "exceptions_ledger.log")
-        
-        if not os.path.exists(ledger_path):
-            return exceptions
-            
-        with open(ledger_path, 'r') as f:
-            for line in f:
-                if line.strip():
-                    exception = self._parse_ledger_line(line.strip())
-                    if exception:
-                        exceptions.append(exception)
-        
         return exceptions
     
-    def _parse_ledger_line(self, line: str) -> Optional[SystemException]:
-        """Parse a single line from the exceptions ledger"""
-        # Pattern: [EXCEPTION] [timestamp] id=ID status=STATUS type=TYPE invoice_id=INVOICE queue=QUEUE
-        pattern = r'\[EXCEPTION\] \[([^\]]+)\] id=([^\s]+) status=([^\s]+) type=([^\s]+) invoice_id=([^\s]+) queue=([^\s]+)'
-        match = re.match(pattern, line)
-        
-        if match:
-            timestamp, exc_id, status, exc_type, invoice_id, queue = match.groups()
-            
-            # Try to get raw data from the corresponding queue log file
-            raw_data = self._get_raw_data_from_queue_log(exc_id, queue)
-            
-            return SystemException(
-                exception_id=exc_id,
-                invoice_id=invoice_id,
-                po_number="",  # Will be filled from queue logs
-                amount="",     # Will be filled from queue logs
-                supplier="",   # Will be filled from queue logs
-                exception_type=exc_type,
-                queue=queue,
-                routing_reason="",  # Will be filled from queue logs
-                timestamp=timestamp,
-                context={},
-                raw_data=raw_data
-            )
-        return None
     
-    def _get_raw_data_from_queue_log(self, exception_id: str, queue: str) -> str:
-        """Get raw data from the corresponding queue log file for a given exception ID."""
-        queue_file = f"queue_{queue.lower()}.log"
-        queue_path = os.path.join(self.logs_dir, queue_file)
-        
-        if not os.path.exists(queue_path):
-            return ""
-            
-        try:
-            with open(queue_path, 'r') as f:
-                content = f.read()
-                # Check if this exception ID is in this file
-                if f"EXCEPTION_ID: {exception_id}" in content:
-                    return content.strip()
-        except Exception:
-            pass
-        
-        return ""
     
-    def _extract_exception_raw_data(self, block: str, exception_id: str) -> str:
-        """Extract only the raw data for a specific exception from a block that may contain multiple exceptions."""
-        lines = block.strip().split('\n')
-        exception_lines = []
-        in_exception = False
-        
-        for line in lines:
-            if line.startswith("EXCEPTION_ID:") and exception_id in line:
-                in_exception = True
-                exception_lines = [line]
-            elif in_exception:
-                if line.startswith("EXCEPTION_ID:") and exception_id not in line:
-                    # This is a different exception, stop collecting
-                    break
-                elif line.strip():  # Only add non-empty lines
-                    exception_lines.append(line)
-        
-        return '\n'.join(exception_lines) if exception_lines else block.strip()
-    
-    def _split_exception_blocks(self, content: str) -> List[str]:
-        """Split content into individual exception blocks."""
+    def _split_canonical_exception_blocks(self, content: str) -> List[str]:
+        """Split content into individual exception blocks using canonical format delimiters."""
         lines = content.strip().split('\n')
         blocks = []
         current_block = []
+        in_exception = False
         
         for line in lines:
-            if line.startswith("QUEUE:") and current_block:
-                # Start of a new exception, save the previous one
-                blocks.append('\n'.join(current_block))
+            if line.strip() == "=== EXCEPTION_START ===":
+                # Start of a new exception
+                if current_block and in_exception:
+                    # Save the previous block
+                    blocks.append('\n'.join(current_block))
                 current_block = [line]
-            else:
+                in_exception = True
+            elif line.strip() == "=== EXCEPTION_END ===":
+                # End of current exception
+                if in_exception:
+                    current_block.append(line)
+                    blocks.append('\n'.join(current_block))
+                    current_block = []
+                    in_exception = False
+            elif in_exception:
                 current_block.append(line)
-        
-        # Add the last block
-        if current_block:
-            blocks.append('\n'.join(current_block))
         
         return blocks
     
     def _parse_queue_log(self, queue_file: str) -> List[SystemException]:
-        """Parse a specific queue log file"""
+        """Parse a specific queue log file using canonical format"""
         exceptions = []
         queue_path = os.path.join(self.logs_dir, queue_file)
         
@@ -188,21 +97,21 @@ class ExceptionParser:
         with open(queue_path, 'r') as f:
             content = f.read()
             
-        # Split content by exception blocks (each starts with "QUEUE:")
+        # Parse canonical format with EXCEPTION_START/END delimiters
         if content.strip():
-            exception_blocks = self._split_exception_blocks(content)
+            exception_blocks = self._split_canonical_exception_blocks(content)
             for block in exception_blocks:
-                exception = self._parse_queue_block(block, queue_name)
+                exception = self._parse_canonical_exception_block(block, queue_name)
                 if exception:
                     exceptions.append(exception)
         
         return exceptions
     
-    def _parse_queue_block(self, block: str, queue_name: str) -> Optional[SystemException]:
-        """Parse a single exception block from a queue log"""
+    def _parse_canonical_exception_block(self, block: str, queue_name: str) -> Optional[SystemException]:
+        """Parse a single canonical exception block from a queue log"""
         lines = block.strip().split('\n')
         
-        # Extract key information
+        # Initialize fields
         exception_id = ""
         invoice_id = ""
         po_number = ""
@@ -211,67 +120,87 @@ class ExceptionParser:
         routing_reason = ""
         timestamp = ""
         priority = ""
-        suggested_actions = []
+        exception_type = ""
+        status = "OPEN"
+        confidence_score = None
         manager_approval_required = False
         context = {}
+        suggested_actions = []
+        metadata = {}
+        
+        current_section = None
         
         for line in lines:
             line = line.strip()
             
-            if line.startswith("EXCEPTION_ID:"):
-                exception_id = line.split(":", 1)[1].strip()
-            elif line.startswith("INVOICE:"):
-                # Parse: INVOICE: INV-AEG-2025-001 (PO: PO-AEG-GA001, Amount: $6,000.00)
-                invoice_part = line.split(":", 1)[1].strip()
-                invoice_id = invoice_part.split("(")[0].strip()
+            # Skip delimiters
+            if line in ["=== EXCEPTION_START ===", "=== EXCEPTION_END ==="]:
+                continue
                 
-                # Extract PO and amount from parentheses
-                if "(" in invoice_part and ")" in invoice_part:
-                    paren_content = invoice_part.split("(")[1].split(")")[0]
-                    if "PO:" in paren_content:
-                        po_number = paren_content.split("PO:")[1].split(",")[0].strip()
-                    if "Amount:" in paren_content:
-                        amount = paren_content.split("Amount:")[1].strip()
-            elif line.startswith("ROUTING_REASON:"):
-                routing_reason = line.split(":", 1)[1].strip()
-            elif line.startswith("TIMESTAMP:"):
-                timestamp = line.split(":", 1)[1].strip()
-            elif line.startswith("SUPPLIER:"):
-                supplier = line.split(":", 1)[1].strip()
-            elif line.startswith("PRIORITY:"):
-                priority = line.split(":", 1)[1].strip()
-            elif line.startswith("MANAGER_APPROVAL_REQUIRED:"):
-                manager_approval_required = line.split(":", 1)[1].strip().upper() == "YES"
-            elif line.startswith("CONTEXT:"):
-                # Parse context section
-                context_lines = []
-                in_context = True
-                for context_line in lines[lines.index(line)+1:]:
-                    if context_line.strip() and not context_line.startswith("  -"):
-                        break
-                    if context_line.strip():
-                        context_lines.append(context_line.strip())
-                context = {"details": context_lines}
-            elif line.startswith("SUGGESTED_ACTIONS:"):
-                # Parse suggested actions
-                action_lines = []
-                for action_line in lines[lines.index(line)+1:]:
-                    if action_line.strip() and action_line.startswith("  -"):
-                        action_lines.append(action_line.strip()[2:].strip())
-                    elif action_line.strip() and not action_line.startswith("  -"):
-                        break
-                suggested_actions = action_lines
+            # Parse header fields
+            if ":" in line and not line.startswith("CONTEXT:") and not line.startswith("SUGGESTED_ACTIONS:") and not line.startswith("METADATA:"):
+                field_name, field_value = line.split(":", 1)
+                field_name = field_name.strip()
+                field_value = field_value.strip()
+                
+                if field_name == "EXCEPTION_ID":
+                    exception_id = field_value
+                elif field_name == "INVOICE_ID":
+                    invoice_id = field_value
+                elif field_name == "PO_NUMBER":
+                    po_number = field_value
+                elif field_name == "AMOUNT":
+                    amount = field_value
+                elif field_name == "SUPPLIER":
+                    supplier = field_value
+                elif field_name == "ROUTING_REASON":
+                    routing_reason = field_value
+                elif field_name == "TIMESTAMP":
+                    timestamp = field_value
+                elif field_name == "PRIORITY":
+                    priority = field_value
+                elif field_name == "EXCEPTION_TYPE":
+                    exception_type = field_value
+                elif field_name == "STATUS":
+                    status = field_value
+                elif field_name == "CONFIDENCE_SCORE" and field_value != "N/A":
+                    try:
+                        confidence_score = float(field_value)
+                    except ValueError:
+                        confidence_score = None
+                elif field_name == "MANAGER_APPROVAL_REQUIRED":
+                    manager_approval_required = field_value.upper() == "YES"
+            
+            # Handle sections
+            elif line == "CONTEXT:":
+                current_section = "context"
+                context = {"details": []}
+            elif line == "SUGGESTED_ACTIONS:":
+                current_section = "suggested_actions"
+                suggested_actions = []
+            elif line == "METADATA:":
+                current_section = "metadata"
+                metadata = {}
+            elif current_section == "context" and line:
+                context["details"].append(line)
+            elif current_section == "suggested_actions" and line:
+                if line.startswith("- "):
+                    suggested_actions.append(line[2:].strip())
+                else:
+                    suggested_actions.append(line)
+            elif current_section == "metadata" and line and ":" in line:
+                meta_key, meta_value = line.split(":", 1)
+                metadata[meta_key.strip()] = meta_value.strip()
         
         if exception_id and invoice_id:
-            # Extract only the relevant section for this exception
-            raw_data = self._extract_exception_raw_data(block, exception_id)
-            
             # Enhance context with additional parsed information
             enhanced_context = context.copy()
             enhanced_context.update({
                 "priority": priority,
                 "suggested_actions": suggested_actions,
-                "manager_approval_required": manager_approval_required
+                "manager_approval_required": manager_approval_required,
+                "confidence_score": confidence_score,
+                "metadata": metadata
             })
             
             return SystemException(
@@ -280,12 +209,13 @@ class ExceptionParser:
                 po_number=po_number,
                 amount=amount,
                 supplier=supplier,
-                exception_type="VALIDATION_FAILED",  # Default, could be enhanced
+                exception_type=exception_type or "VALIDATION_FAILED",
                 queue=queue_name,
                 routing_reason=routing_reason,
                 timestamp=timestamp,
                 context=enhanced_context,
-                raw_data=raw_data
+                raw_data=block,
+                status=status
             )
         
         return None
