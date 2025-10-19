@@ -146,6 +146,56 @@ python utilities/process_bronze_invoices_quiet.py
 
 ## Log Management
 
+### `clear_system_logs.py`
+
+A utility script for clearing all log files in the system_logs directory.
+
+**Purpose:**
+- Clears all log files in the system_logs directory
+- Provides safe clearing with confirmation prompts
+- Shows log file status and sizes
+- Supports both interactive and command-line modes
+
+**Usage:**
+```bash
+# Interactive mode
+python utilities/clear_system_logs.py
+
+# Show log status only
+python utilities/clear_system_logs.py status
+
+# Clear all logs (non-interactive)
+python utilities/clear_system_logs.py clear
+
+# Show help
+python utilities/clear_system_logs.py help
+```
+
+**Features:**
+- **Safe Clearing**: Requires confirmation before clearing logs
+- **Status Display**: Shows current log file sizes and status
+- **Multiple Modes**: Interactive, status-only, and non-interactive modes
+- **Error Handling**: Graceful handling of file access errors
+- **Progress Reporting**: Clear feedback on clearing progress
+
+**Log Files Cleared:**
+- `exceptions_ledger.log`
+- `payments.log`
+- `processed_invoices.log`
+- `queue_billing_discrepancies.log`
+- `queue_date_discrepancies.log`
+- `queue_general_exceptions.log`
+- `queue_high_value_approval.log`
+- `queue_low_confidence_matches.log`
+- `queue_missing_data.log`
+- `queue_price_discrepancies.log`
+
+**Use Cases:**
+- **Testing**: Clear logs before running test suites
+- **Maintenance**: Clean up accumulated log data
+- **Debugging**: Start fresh when investigating issues
+- **Development**: Reset system state during development
+
 ### System Logs Preservation
 
 Both batch processing scripts are designed to preserve system logs across multiple runs:

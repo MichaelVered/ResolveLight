@@ -407,6 +407,16 @@ function displayExceptionDetails(data) {
             </div>
         </div>
         ` : ''}
+
+        <!-- Exception Details -->
+        <div class="mt-3">
+            <h6><i class="fas fa-code"></i> Exception Details</h6>
+            <div class="card">
+                <div class="card-body">
+                    <pre class="mb-0" style="background-color: #f8f9fa; padding: 1rem; border-radius: 0.375rem; font-size: 0.875rem; max-height: 300px; overflow-y: auto;"><code>${exception.raw_data || 'Raw data not available'}</code></pre>
+                </div>
+            </div>
+        </div>
     `;
 }
 

@@ -107,6 +107,7 @@ class LearningDatabase:
                 routing_reason TEXT,
                 timestamp TEXT,
                 context TEXT,
+                raw_data TEXT,
                 status TEXT DEFAULT 'OPEN',
                 expert_reviewed BOOLEAN DEFAULT FALSE,
                 expert_feedback TEXT,
@@ -116,6 +117,9 @@ class LearningDatabase:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # Run migrations for existing databases
+        self._run_migrations()
 
     def _create_tables(self):
         """Create database tables with proper schema."""
@@ -123,7 +127,7 @@ class LearningDatabase:
         
         # learning_records: Raw learning opportunities from log analysis
         cursor.execute("""
-            CREATE TABLE learning_records (
+            CREATE TABLE IF NOT EXISTS learning_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 source_type VARCHAR(50) NOT NULL,
@@ -138,7 +142,7 @@ class LearningDatabase:
         
         # human_feedback: Human corrections and expert input
         cursor.execute("""
-            CREATE TABLE human_feedback (
+            CREATE TABLE IF NOT EXISTS human_feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 invoice_id VARCHAR(100),
@@ -156,7 +160,7 @@ class LearningDatabase:
         
         # learning_plans: Generated improvement plans
         cursor.execute("""
-            CREATE TABLE learning_plans (
+            CREATE TABLE IF NOT EXISTS learning_plans (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 plan_type VARCHAR(50) NOT NULL,
@@ -176,7 +180,7 @@ class LearningDatabase:
         
         # system_exceptions: System exceptions for expert review
         cursor.execute("""
-            CREATE TABLE system_exceptions (
+            CREATE TABLE IF NOT EXISTS system_exceptions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 exception_id VARCHAR(100) UNIQUE NOT NULL,
@@ -189,6 +193,7 @@ class LearningDatabase:
                 routing_reason TEXT,
                 timestamp VARCHAR(50),
                 context JSON,
+                raw_data TEXT,
                 status VARCHAR(20) DEFAULT 'OPEN',
                 expert_reviewed BOOLEAN DEFAULT FALSE,
                 expert_feedback TEXT,
@@ -197,6 +202,24 @@ class LearningDatabase:
                 human_correction VARCHAR(50)
             )
         """)
+        
+        # Run migrations for existing databases
+        self._run_migrations()
+    
+    def _run_migrations(self):
+        """Run database migrations for schema updates."""
+        cursor = self.conn.cursor()
+        
+        # Migration: Add raw_data column to system_exceptions table
+        try:
+            cursor.execute("ALTER TABLE system_exceptions ADD COLUMN raw_data TEXT DEFAULT ''")
+            print("Added raw_data column to system_exceptions table")
+        except Exception as e:
+            # Column might already exist, which is fine
+            if "duplicate column name" not in str(e).lower():
+                print(f"Migration note: {e}")
+        
+        self.conn.commit()
     
     def store_learning_record(self, source_type: str, source_file: str, 
                             source_data: Dict[str, Any], learning_opportunity: str,
@@ -350,8 +373,8 @@ class LearningDatabase:
         cursor.execute("""
             INSERT OR REPLACE INTO system_exceptions 
             (exception_id, invoice_id, po_number, amount, supplier, exception_type, 
-             queue, routing_reason, timestamp, context, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             queue, routing_reason, timestamp, context, raw_data, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             exception_data['exception_id'],
             exception_data['invoice_id'],
@@ -363,6 +386,7 @@ class LearningDatabase:
             exception_data.get('routing_reason', ''),
             exception_data.get('timestamp', ''),
             json.dumps(exception_data.get('context', {})),
+            exception_data.get('raw_data', ''),
             exception_data.get('status', 'OPEN')
         ))
         
@@ -437,6 +461,7 @@ class LearningDatabase:
                 'routing_reason': exc.routing_reason,
                 'timestamp': exc.timestamp,
                 'context': exc.context,
+                'raw_data': exc.raw_data,
                 'status': exc.status
             }
             

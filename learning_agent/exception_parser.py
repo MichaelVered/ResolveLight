@@ -23,6 +23,7 @@ class SystemException:
     routing_reason: str
     timestamp: str
     context: Dict
+    raw_data: str = ""
     status: str = "OPEN"
     expert_reviewed: bool = False
     expert_feedback: Optional[str] = None
@@ -63,7 +64,8 @@ class ExceptionParser:
             else:
                 # If we already have this exception, prefer the one with more data
                 existing = seen_ids[exc.exception_id]
-                if exc.po_number or exc.amount or exc.supplier:
+                # Prioritize entries with raw_data, then other detailed fields
+                if exc.raw_data or (exc.po_number or exc.amount or exc.supplier):
                     # This exception has more data, use it instead
                     seen_ids[exc.exception_id] = exc
         
@@ -96,6 +98,10 @@ class ExceptionParser:
         
         if match:
             timestamp, exc_id, status, exc_type, invoice_id, queue = match.groups()
+            
+            # Try to get raw data from the corresponding queue log file
+            raw_data = self._get_raw_data_from_queue_log(exc_id, queue)
+            
             return SystemException(
                 exception_id=exc_id,
                 invoice_id=invoice_id,
@@ -106,9 +112,68 @@ class ExceptionParser:
                 queue=queue,
                 routing_reason="",  # Will be filled from queue logs
                 timestamp=timestamp,
-                context={}
+                context={},
+                raw_data=raw_data
             )
         return None
+    
+    def _get_raw_data_from_queue_log(self, exception_id: str, queue: str) -> str:
+        """Get raw data from the corresponding queue log file for a given exception ID."""
+        queue_file = f"queue_{queue.lower()}.log"
+        queue_path = os.path.join(self.logs_dir, queue_file)
+        
+        if not os.path.exists(queue_path):
+            return ""
+            
+        try:
+            with open(queue_path, 'r') as f:
+                content = f.read()
+                # Check if this exception ID is in this file
+                if f"EXCEPTION_ID: {exception_id}" in content:
+                    return content.strip()
+        except Exception:
+            pass
+        
+        return ""
+    
+    def _extract_exception_raw_data(self, block: str, exception_id: str) -> str:
+        """Extract only the raw data for a specific exception from a block that may contain multiple exceptions."""
+        lines = block.strip().split('\n')
+        exception_lines = []
+        in_exception = False
+        
+        for line in lines:
+            if line.startswith("EXCEPTION_ID:") and exception_id in line:
+                in_exception = True
+                exception_lines = [line]
+            elif in_exception:
+                if line.startswith("EXCEPTION_ID:") and exception_id not in line:
+                    # This is a different exception, stop collecting
+                    break
+                elif line.strip():  # Only add non-empty lines
+                    exception_lines.append(line)
+        
+        return '\n'.join(exception_lines) if exception_lines else block.strip()
+    
+    def _split_exception_blocks(self, content: str) -> List[str]:
+        """Split content into individual exception blocks."""
+        lines = content.strip().split('\n')
+        blocks = []
+        current_block = []
+        
+        for line in lines:
+            if line.startswith("QUEUE:") and current_block:
+                # Start of a new exception, save the previous one
+                blocks.append('\n'.join(current_block))
+                current_block = [line]
+            else:
+                current_block.append(line)
+        
+        # Add the last block
+        if current_block:
+            blocks.append('\n'.join(current_block))
+        
+        return blocks
     
     def _parse_queue_log(self, queue_file: str) -> List[SystemException]:
         """Parse a specific queue log file"""
@@ -123,12 +188,13 @@ class ExceptionParser:
         with open(queue_path, 'r') as f:
             content = f.read()
             
-        # For queue logs, treat the entire content as one exception block
-        # since they contain one exception per file
+        # Split content by exception blocks (each starts with "QUEUE:")
         if content.strip():
-            exception = self._parse_queue_block(content, queue_name)
-            if exception:
-                exceptions.append(exception)
+            exception_blocks = self._split_exception_blocks(content)
+            for block in exception_blocks:
+                exception = self._parse_queue_block(block, queue_name)
+                if exception:
+                    exceptions.append(exception)
         
         return exceptions
     
@@ -197,6 +263,9 @@ class ExceptionParser:
                 suggested_actions = action_lines
         
         if exception_id and invoice_id:
+            # Extract only the relevant section for this exception
+            raw_data = self._extract_exception_raw_data(block, exception_id)
+            
             # Enhance context with additional parsed information
             enhanced_context = context.copy()
             enhanced_context.update({
@@ -215,7 +284,8 @@ class ExceptionParser:
                 queue=queue_name,
                 routing_reason=routing_reason,
                 timestamp=timestamp,
-                context=enhanced_context
+                context=enhanced_context,
+                raw_data=raw_data
             )
         
         return None
