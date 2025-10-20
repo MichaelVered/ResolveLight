@@ -21,7 +21,7 @@ from learning_agent.database import LearningDatabase
 class HumanDrivenLearningAgent:
     """
     Learning agent that focuses on human expert feedback.
-    Generates learning plans based on human corrections and domain expertise.
+    Analyzes feedback quality and provides insights for system improvement.
     """
     
     def __init__(self, repo_root: str = None, api_key: str = None):
@@ -50,12 +50,12 @@ class HumanDrivenLearningAgent:
         
         self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
     
-    def generate_learning_plans_from_feedback(self) -> Dict[str, Any]:
+    def analyze_feedback_quality(self) -> Dict[str, Any]:
         """
-        Generate learning plans based on human feedback.
-        This is the core function that analyzes expert feedback and creates optimization plans.
+        Analyze human feedback quality and provide summary.
+        This function analyzes expert feedback for quality assessment.
         """
-        print("🧠 Analyzing human feedback to generate learning plans...")
+        print("🔍 Analyzing human feedback quality...")
         
         # Get all human feedback
         feedback_items = self.db.get_human_feedback()
@@ -63,7 +63,6 @@ class HumanDrivenLearningAgent:
         if not feedback_items:
             print("ℹ️  No human feedback found. Please add feedback through the web GUI.")
             return {
-                'learning_plans_generated': 0,
                 'feedback_analyzed': 0,
                 'message': 'No human feedback available for analysis'
             }
@@ -73,37 +72,15 @@ class HumanDrivenLearningAgent:
         # Group feedback by type and patterns
         grouped_feedback = self._group_feedback_by_patterns(feedback_items)
         
-        learning_plans = []
+        # Analyze feedback quality
+        quality_analysis = self._analyze_feedback_quality(grouped_feedback)
         
-        # Generate learning plans for each feedback group
-        for pattern_type, feedback_group in grouped_feedback.items():
-            if len(feedback_group) >= 1:  # Generate plans even for single feedback items
-                plan = self._generate_plan_from_feedback_group(pattern_type, feedback_group)
-                if plan:
-                    learning_plans.append(plan)
-        
-        # Store learning plans
-        plan_ids = []
-        for plan in learning_plans:
-            plan_id = self.db.store_learning_plan(
-                plan_type=plan['plan_type'],
-                title=plan['title'],
-                description=plan['description'],
-                source_learning_records=plan['source_learning_records'],
-                suggested_changes=plan['suggested_changes'],
-                impact_analysis=plan['impact_analysis'],
-                priority=plan['priority'],
-                llm_reasoning=plan['llm_reasoning']
-            )
-            plan_ids.append(plan_id)
-        
-        print(f"✅ Generated {len(learning_plans)} learning plans from human feedback")
+        print(f"✅ Analyzed {len(feedback_items)} feedback items")
         
         return {
-            'learning_plans_generated': len(learning_plans),
             'feedback_analyzed': len(feedback_items),
-            'learning_plan_ids': plan_ids,
-            'learning_plans': learning_plans
+            'quality_analysis': quality_analysis,
+            'grouped_feedback': grouped_feedback
         }
     
     def _group_feedback_by_patterns(self, feedback_items: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
@@ -139,20 +116,32 @@ class HumanDrivenLearningAgent:
         # Remove empty groups
         return {k: v for k, v in groups.items() if v}
     
-    def _generate_plan_from_feedback_group(self, pattern_type: str, feedback_group: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """Generate a learning plan from a group of similar feedback."""
+    def _analyze_feedback_quality(self, grouped_feedback: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:
+        """Analyze the quality of feedback groups."""
+        analysis = {
+            'total_groups': len(grouped_feedback),
+            'group_breakdown': {},
+            'quality_issues': [],
+            'recommendations': []
+        }
         
-        # Create context for LLM
-        context = self._create_feedback_context(pattern_type, feedback_group)
+        for pattern_type, feedback_group in grouped_feedback.items():
+            group_analysis = {
+                'count': len(feedback_group),
+                'quality_score': 0.0,
+                'completeness': 'unknown'
+            }
+            
+            # Simple quality assessment
+            if len(feedback_group) > 0:
+                # Check for conversation completeness
+                completed_conversations = sum(1 for f in feedback_group if f.get('conversation_status') == 'completed')
+                group_analysis['completeness'] = 'high' if completed_conversations > 0 else 'low'
+                group_analysis['quality_score'] = min(1.0, completed_conversations / len(feedback_group))
+            
+            analysis['group_breakdown'][pattern_type] = group_analysis
         
-        # Generate learning plan using LLM
-        plan = self._generate_single_learning_plan(pattern_type, feedback_group, context)
-        
-        if plan:
-            # Add source learning record IDs (we'll create them from feedback)
-            plan['source_learning_records'] = [f['id'] for f in feedback_group]
-        
-        return plan
+        return analysis
     
     def _create_feedback_context(self, pattern_type: str, feedback_group: List[Dict[str, Any]]) -> str:
         """Create context string for LLM analysis of human feedback."""
@@ -210,97 +199,7 @@ class HumanDrivenLearningAgent:
         
         return "\n".join(context_parts)
     
-    def _generate_single_learning_plan(self, pattern_type: str, feedback_group: List[Dict[str, Any]], context: str) -> Optional[Dict[str, Any]]:
-        """Generate a single learning plan using LLM analysis of human feedback."""
-        
-        prompt = f"""
-You are an expert system optimization analyst. Based on the human expert feedback and source code context below, generate a specific, actionable learning plan.
-
-CONTEXT:
-{context}
-
-FEEDBACK PATTERN TYPE: {pattern_type}
-NUMBER OF FEEDBACK ITEMS: {len(feedback_group)}
-
-REQUIREMENTS:
-1. Analyze the human expert feedback to understand the ROOT CAUSE of the issues
-2. Determine the BEST optimization strategy from these options:
-   - prompt_optimization: Improve agent instructions/prompts
-   - tool_enhancement: Modify existing validation tools
-   - new_validation_rule: Add new business logic
-   - fuzzy_matching_improvement: Enhance matching algorithms
-   - confidence_threshold_adjustment: Tune decision thresholds
-   - routing_logic_optimization: Improve queue routing
-   - data_validation_enhancement: Better data quality checks
-   - exception_handling_improvement: Better error handling
-   - business_rule_addition: Add new business rules
-   - performance_optimization: Speed/memory improvements
-
-3. Provide SPECIFIC, CODE-LEVEL changes based on the human feedback:
-   - If prompt optimization: Show the EXACT new prompt
-   - If tool enhancement: Show the EXACT code changes
-   - If new validation rule: Show the EXACT implementation
-   - If threshold adjustment: Show the EXACT new values
-
-4. Focus on addressing the specific issues mentioned in the human feedback
-5. Include impact analysis and implementation complexity
-
-RESPONSE FORMAT (JSON):
-{{
-    "plan_type": "chosen_optimization_strategy",
-    "title": "Clear, descriptive title based on human feedback",
-    "description": "Detailed description of the problem and solution based on expert feedback",
-    "suggested_changes": {{
-        "file_path": "path/to/file",
-        "change_type": "replace|add|modify",
-        "old_code": "existing code to change",
-        "new_code": "new code implementation",
-        "additional_files": ["list", "of", "files", "to", "modify"]
-    }},
-    "impact_analysis": {{
-        "affected_invoices": "estimated number based on feedback patterns",
-        "improvement_expected": "description of expected improvement",
-        "risk_level": "low|medium|high",
-        "implementation_effort": "low|medium|high"
-    }},
-    "priority": "low|medium|high|critical",
-    "llm_reasoning": "Detailed explanation of why this approach was chosen based on the human feedback and how it addresses the specific issues mentioned by experts"
-}}
-
-Focus on SPECIFIC, ACTIONABLE changes that directly address the issues mentioned in the human expert feedback.
-"""
-
-        try:
-            response = self.model.generate_content(prompt)
-            response_text = response.text.strip()
-            
-            # Extract JSON from response
-            if "```json" in response_text:
-                json_start = response_text.find("```json") + 7
-                json_end = response_text.find("```", json_start)
-                json_text = response_text[json_start:json_end].strip()
-            elif "{" in response_text and "}" in response_text:
-                json_start = response_text.find("{")
-                json_end = response_text.rfind("}") + 1
-                json_text = response_text[json_start:json_end]
-            else:
-                print(f"Warning: Could not extract JSON from LLM response: {response_text[:200]}...")
-                return None
-            
-            plan_data = json.loads(json_text)
-            return plan_data
-            
-        except json.JSONDecodeError as e:
-            print(f"Error parsing LLM response as JSON: {e}")
-            print(f"Response: {response_text[:500]}...")
-            return None
-        except Exception as e:
-            print(f"Error generating learning plan: {e}")
-            return None
     
-    def get_learning_plans(self, status: str = None) -> List[Dict[str, Any]]:
-        """Get learning plans from database."""
-        return self.db.get_learning_plans(status)
     
     def get_human_feedback(self) -> List[Dict[str, Any]]:
         """Get human feedback from database."""
@@ -323,25 +222,20 @@ def main():
         # Initialize learning agent
         agent = HumanDrivenLearningAgent()
         
-        # Generate learning plans from human feedback
-        results = agent.generate_learning_plans_from_feedback()
+        # Analyze human feedback quality
+        results = agent.analyze_feedback_quality()
         
         # Print results
-        print("\n📋 RESULTS SUMMARY:")
+        print("\n📋 ANALYSIS SUMMARY:")
         print(f"Human feedback analyzed: {results['feedback_analyzed']}")
-        print(f"Learning plans generated: {results['learning_plans_generated']}")
         
-        # Show generated learning plans
-        plans = agent.get_learning_plans()
-        if plans:
-            print(f"\n📝 GENERATED LEARNING PLANS:")
-            for i, plan in enumerate(plans, 1):
-                print(f"{i}. {plan['title']}")
-                print(f"   Type: {plan['plan_type']}")
-                print(f"   Priority: {plan['priority']}")
-                print(f"   Status: {plan['status']}")
-                print(f"   Reasoning: {plan['llm_reasoning'][:100]}...")
-                print()
+        # Show quality analysis
+        if 'quality_analysis' in results:
+            analysis = results['quality_analysis']
+            print(f"Feedback groups found: {analysis['total_groups']}")
+            
+            for group_type, group_data in analysis['group_breakdown'].items():
+                print(f"  - {group_type}: {group_data['count']} items (quality: {group_data['quality_score']:.2f})")
         
         # Show database stats
         stats = agent.get_database_stats()

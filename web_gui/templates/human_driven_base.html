@@ -67,11 +67,7 @@
                                 <i class="fas fa-clipboard-check"></i> Exception Review
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.endpoint == 'learning_plans' %}active{% endif %}" href="{{ url_for('learning_plans') }}">
-                                <i class="fas fa-lightbulb"></i> Learning Plans
-                            </a>
-                        </li>
+                        <!-- Learning Plans removed - will be implemented in next stage -->
                         <li class="nav-item">
                             <a class="nav-link {% if request.endpoint == 'feedback_history' %}active{% endif %}" href="{{ url_for('feedback_history') }}">
                                 <i class="fas fa-history"></i> Review History

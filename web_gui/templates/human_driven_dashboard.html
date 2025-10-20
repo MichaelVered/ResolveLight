@@ -56,11 +56,11 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h4 class="card-title">{{ stats.learning_plans or 0 }}</h4>
-                        <p class="card-text">Learning Plans</p>
+                        <h4 class="card-title">{{ active_conversations|length or 0 }}</h4>
+                        <p class="card-text">Active Conversations</p>
                     </div>
                     <div class="align-self-center">
-                        <i class="fas fa-lightbulb fa-2x"></i>
+                        <i class="fas fa-comments fa-2x"></i>
                     </div>
                 </div>
             </div>
@@ -141,9 +141,6 @@
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-primary" onclick="reviewException('{{ exception.exception_id }}')">
                                                 <i class="fas fa-eye"></i> Review
-                                            </button>
-                                            <button class="btn btn-success" onclick="quickApprove('{{ exception.exception_id }}')">
-                                                <i class="fas fa-check"></i> Approve
                                             </button>
                                         </div>
                                     </td>
@@ -252,6 +249,7 @@
 {% block scripts %}
 <script>
 let currentExceptionId = null;
+let currentInvoiceId = null;
 
 function syncExceptions() {
     fetch('/sync_exceptions', {
@@ -300,6 +298,9 @@ function displayExceptionDetails(data) {
     const exception = data.exception;
     const relatedData = data.related_data;
     const detailsDiv = document.getElementById('exceptionDetails');
+    
+    // Track invoice id for subsequent submissions
+    currentInvoiceId = exception.invoice_id;
     
     // Parse context for additional information
     const context = exception.context ? JSON.parse(exception.context) : {};
@@ -443,6 +444,7 @@ document.getElementById('reviewForm').addEventListener('submit', function(e) {
     const formData = new FormData(this);
     const data = Object.fromEntries(formData);
     data.exception_id = currentExceptionId;
+    data.invoice_id = currentInvoiceId;
     
     fetch('/submit_exception_review', {
         method: 'POST',
@@ -454,8 +456,13 @@ document.getElementById('reviewForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Exception review submitted successfully!');
-            location.reload();
+            if (data.enhanced_feedback && data.questions && data.questions.length > 0) {
+                // Show enhanced feedback modal with LLM questions
+                showEnhancedFeedbackModal(data);
+            } else {
+                alert('Exception review submitted successfully!');
+                location.reload();
+            }
         } else {
             alert('Error submitting review: ' + data.message);
         }
@@ -473,6 +480,7 @@ document.getElementById('quickApproveForm').addEventListener('submit', function(
     const formData = new FormData(this);
     const data = Object.fromEntries(formData);
     data.exception_id = currentExceptionId;
+    data.invoice_id = currentInvoiceId;
     data.expert_decision = 'APPROVE';
     data.expert_feedback = 'Quick approval - agent decision was correct';
     data.human_correction = 'APPROVED';
@@ -640,7 +648,242 @@ function formatFieldValue(value) {
     }
     return String(value);
 }
+
+// Enhanced Feedback Modal Functions
+let currentConversationId = null;
+let currentFeedbackId = null;
+let currentQuestionIndex = 0;
+let llmQuestions = [];
+
+function showEnhancedFeedbackModal(data) {
+    currentConversationId = data.conversation_id;
+    currentFeedbackId = data.feedback_id;
+    llmQuestions = data.questions || [];
+    currentQuestionIndex = 0;
+    
+    // Clear previous messages
+    document.getElementById('chatMessages').innerHTML = '';
+    document.getElementById('humanResponseForm').style.display = 'block';
+    document.getElementById('finalSummarySection').style.display = 'none';
+    
+    // Display initial feedback in chat
+    addMessageToChat('human', 'Initial Feedback Submitted', 'Exception review feedback submitted');
+    
+    // Display LLM questions
+    if (llmQuestions.length > 0) {
+        displayLLMQuestions();
+    } else {
+        showFinalSummary();
+    }
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('enhancedFeedbackModal'));
+    modal.show();
+}
+
+function displayLLMQuestions() {
+    if (currentQuestionIndex < llmQuestions.length) {
+        const question = llmQuestions[currentQuestionIndex];
+        addMessageToChat('ai', `Question ${currentQuestionIndex + 1}`, question);
+        
+        // Show response form
+        document.getElementById('humanResponseForm').style.display = 'block';
+        document.getElementById('humanResponse').focus();
+    } else {
+        showFinalSummary();
+    }
+}
+
+function addMessageToChat(sender, title, content) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `mb-3 ${sender === 'ai' ? 'text-start' : 'text-end'}`;
+    
+    const badgeClass = sender === 'ai' ? 'bg-primary' : 'bg-success';
+    const icon = sender === 'ai' ? 'fas fa-robot' : 'fas fa-user';
+    
+    messageDiv.innerHTML = `
+        <div class="d-flex ${sender === 'ai' ? 'justify-content-start' : 'justify-content-end'}">
+            <div class="card ${sender === 'ai' ? 'ms-0' : 'me-0'}" style="max-width: 80%;">
+                <div class="card-header py-2">
+                    <span class="badge ${badgeClass}"><i class="${icon}"></i> ${title}</span>
+                </div>
+                <div class="card-body py-2">
+                    <p class="mb-0">${content}</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function skipQuestions() {
+    if (confirm('Are you sure you want to skip the remaining questions? This will complete the feedback process with the information provided so far.')) {
+        showFinalSummary();
+    }
+}
+
+function showFinalSummary() {
+    // Hide response form
+    document.getElementById('humanResponseForm').style.display = 'none';
+    
+    // Show final summary section
+    document.getElementById('finalSummarySection').style.display = 'block';
+    
+    // Generate summary
+    fetch('/feedback/generate_summary', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('feedbackSummaryText').innerHTML = data.summary;
+        }
+    })
+    .catch(error => {
+        console.error('Error generating summary:', error);
+    });
+}
+
+function completeFeedback() {
+    // Mark conversation as completed
+    fetch('/feedback/complete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Feedback process completed successfully! Your feedback has been summarized and is ready for the learning system.');
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while completing the feedback process.');
+    });
+}
+
+// Handle human response submission
+document.getElementById('humanResponseForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const response = document.getElementById('humanResponse').value.trim();
+    if (!response) {
+        alert('Please provide a response to the question.');
+        return;
+    }
+    
+    // Add human response to chat
+    addMessageToChat('human', `Response ${currentQuestionIndex + 1}`, response);
+    
+    // Submit response to server
+    fetch('/feedback/submit_response', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId,
+            feedback_id: currentFeedbackId,
+            question_index: currentQuestionIndex,
+            response: response
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentQuestionIndex++;
+            document.getElementById('humanResponse').value = '';
+            
+            if (currentQuestionIndex < llmQuestions.length) {
+                // Show next question
+                setTimeout(() => {
+                    displayLLMQuestions();
+                }, 1000);
+            } else {
+                // All questions answered, show summary
+                setTimeout(() => {
+                    showFinalSummary();
+                }, 1000);
+            }
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while submitting response.');
+    });
+});
 </script>
 
+<!-- Enhanced Feedback Modal -->
+<div class="modal fade" id="enhancedFeedbackModal" tabindex="-1" aria-labelledby="enhancedFeedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="enhancedFeedbackModalLabel">
+                    <i class="fas fa-robot"></i> AI Assistant - Follow-up Questions
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle"></i> Enhanced Feedback Collection</h6>
+                    <p class="mb-0">The AI has generated specific questions to help extract actionable business rules from your feedback.</p>
+                </div>
+                
+                <!-- Chat Messages -->
+                <div id="chatMessages" class="chat-messages" style="height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 15px; margin-bottom: 15px; background-color: #f8f9fa;">
+                    <!-- Messages will be dynamically added here -->
+                </div>
+                
+                <!-- Human Response Form -->
+                <form id="humanResponseForm">
+                    <div class="mb-3">
+                        <label for="humanResponse" class="form-label">Your Response:</label>
+                        <textarea class="form-control" id="humanResponse" name="humanResponse" rows="3" 
+                                  placeholder="Please provide your detailed response to the AI's questions..."></textarea>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-outline-secondary me-md-2" onclick="skipQuestions()">Skip Questions</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-reply"></i> Submit Response
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Final Summary Section -->
+                <div id="finalSummarySection" style="display: none;">
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle"></i> Feedback Summary</h6>
+                        <p id="feedbackSummaryText">Your feedback has been summarized and is ready for the learning system.</p>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-success" onclick="completeFeedback()">
+                            <i class="fas fa-check"></i> Complete Feedback Process
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}

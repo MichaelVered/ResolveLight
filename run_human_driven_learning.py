@@ -36,7 +36,7 @@ def main():
     print("🧠 Starting Human-Driven Learning Agent...")
     print("=" * 50)
     print("This agent learns from expert feedback, not autonomous log analysis.")
-    print("Add feedback through the web GUI, then run this to generate learning plans.")
+    print("Add feedback through the web GUI, then run this to analyze feedback quality.")
     print("=" * 50)
     
     try:
@@ -50,41 +50,34 @@ def main():
             print(f"📁 Repository root: {agent.repo_root}")
             print(f"🗄️  Database path: {agent.db.db_path}")
         
-        # Generate learning plans from human feedback
-        print("\n🔍 Analyzing human feedback...")
-        results = agent.generate_learning_plans_from_feedback()
+        # Analyze human feedback quality
+        print("\n🔍 Analyzing human feedback quality...")
+        results = agent.analyze_feedback_quality()
         
         # Print detailed results
         print("\n📊 ANALYSIS RESULTS:")
         print("=" * 30)
         print(f"Expert feedback analyzed: {results['feedback_analyzed']}")
-        print(f"Learning plans generated: {results['learning_plans_generated']}")
         
-        if results['learning_plans_generated'] == 0:
+        if results['feedback_analyzed'] == 0:
             print("\n💡 TIP: Add expert feedback through the web GUI first:")
             print("   python web_gui/human_driven_app.py")
             print("   Then visit http://localhost:5001/feedback")
         
-        # Show generated learning plans
-        plans = agent.get_learning_plans()
-        if plans:
-            print(f"\n📝 GENERATED LEARNING PLANS:")
-            print("=" * 35)
-            for i, plan in enumerate(plans, 1):
-                print(f"{i}. {plan['title']}")
-                print(f"   Type: {plan['plan_type']}")
-                print(f"   Priority: {plan['priority']}")
-                print(f"   Status: {plan['status']}")
-                print(f"   Reasoning: {plan['llm_reasoning'][:100]}...")
-                print()
+        # Show quality analysis
+        if 'quality_analysis' in results:
+            analysis = results['quality_analysis']
+            print(f"Feedback groups found: {analysis['total_groups']}")
+            
+            for group_type, group_data in analysis['group_breakdown'].items():
+                print(f"  - {group_type}: {group_data['count']} items (quality: {group_data['quality_score']:.2f})")
         
         # Show database statistics
         stats = agent.get_database_stats()
         print(f"📊 DATABASE STATISTICS:")
         print(f"  - Human feedback: {stats['human_feedback']}")
-        print(f"  - Learning plans: {stats['learning_plans']}")
-        print(f"  - Draft plans: {stats['draft_plans']}")
-        print(f"  - Approved plans: {stats['approved_plans']}")
+        print(f"  - System exceptions: {stats['system_exceptions']}")
+        print(f"  - Pending exceptions: {stats['pending_exceptions']}")
         
         print(f"\n✅ Human-driven learning agent completed successfully!")
         print(f"🌐 Web GUI available at: http://localhost:5001")

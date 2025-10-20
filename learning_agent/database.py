@@ -65,18 +65,30 @@ class LearningDatabase:
             )
         """)
         
-        # Create human_feedback table
+        # Create human_feedback table with enhanced schema
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS human_feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                feedback_id TEXT UNIQUE NOT NULL,
-                feedback_type TEXT NOT NULL,
-                content TEXT NOT NULL,
-                priority TEXT DEFAULT 'MEDIUM',
-                status TEXT DEFAULT 'PENDING',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expert_name TEXT,
-                tags TEXT
+                invoice_id VARCHAR(100),
+                original_agent_decision VARCHAR(50),
+                human_correction VARCHAR(50),
+                routing_queue VARCHAR(100),
+                feedback_text TEXT,
+                expert_name VARCHAR(100),
+                feedback_type VARCHAR(50),
+                supporting_evidence JSON,
+                learning_record_id INTEGER,
+                conversation_id VARCHAR(100),
+                is_initial_feedback BOOLEAN DEFAULT TRUE,
+                parent_feedback_id INTEGER,
+                llm_questions TEXT,
+                human_responses TEXT,
+                feedback_summary TEXT,
+                conversation_status VARCHAR(20) DEFAULT 'active',
+                quality_score REAL DEFAULT 0.0,
+                FOREIGN KEY (learning_record_id) REFERENCES learning_records(id),
+                FOREIGN KEY (parent_feedback_id) REFERENCES human_feedback(id)
             )
         """)
         
@@ -154,7 +166,16 @@ class LearningDatabase:
                 feedback_type VARCHAR(50),
                 supporting_evidence JSON,
                 learning_record_id INTEGER,
-                FOREIGN KEY (learning_record_id) REFERENCES learning_records(id)
+                conversation_id VARCHAR(100),
+                is_initial_feedback BOOLEAN DEFAULT TRUE,
+                parent_feedback_id INTEGER,
+                llm_questions TEXT,
+                human_responses TEXT,
+                feedback_summary TEXT,
+                conversation_status VARCHAR(20) DEFAULT 'active',
+                quality_score REAL DEFAULT 0.0,
+                FOREIGN KEY (learning_record_id) REFERENCES learning_records(id),
+                FOREIGN KEY (parent_feedback_id) REFERENCES human_feedback(id)
             )
         """)
         
@@ -219,6 +240,57 @@ class LearningDatabase:
             if "duplicate column name" not in str(e).lower():
                 print(f"Migration note: {e}")
         
+        # Migration: Add new fields to human_feedback table for enhanced feedback collection
+        new_fields = [
+            ("conversation_id", "VARCHAR(100)"),
+            ("is_initial_feedback", "BOOLEAN DEFAULT TRUE"),
+            ("parent_feedback_id", "INTEGER"),
+            ("llm_questions", "TEXT"),
+            ("human_responses", "TEXT"),
+            ("feedback_summary", "TEXT"),
+            ("conversation_status", "VARCHAR(20) DEFAULT 'active'"),
+            ("quality_score", "REAL DEFAULT 0.0")
+        ]
+        
+        # Check if we need to add the new schema fields (for old databases)
+        try:
+            cursor.execute("SELECT invoice_id FROM human_feedback LIMIT 1")
+            # If this succeeds, we have the new schema
+            has_new_schema = True
+        except:
+            # If this fails, we have the old schema and need to add the missing fields
+            has_new_schema = False
+        
+        if not has_new_schema:
+            # Add the missing fields from the new schema
+            missing_fields = [
+                ("invoice_id", "VARCHAR(100)"),
+                ("original_agent_decision", "VARCHAR(50)"),
+                ("human_correction", "VARCHAR(50)"),
+                ("routing_queue", "VARCHAR(100)"),
+                ("feedback_text", "TEXT"),
+                ("supporting_evidence", "JSON"),
+                ("learning_record_id", "INTEGER")
+            ]
+            
+            for field_name, field_definition in missing_fields:
+                try:
+                    cursor.execute(f"ALTER TABLE human_feedback ADD COLUMN {field_name} {field_definition}")
+                    print(f"Added {field_name} column to human_feedback table")
+                except Exception as e:
+                    if "duplicate column name" not in str(e).lower():
+                        print(f"Migration note for {field_name}: {e}")
+        
+        # Add the enhanced feedback fields
+        for field_name, field_definition in new_fields:
+            try:
+                cursor.execute(f"ALTER TABLE human_feedback ADD COLUMN {field_name} {field_definition}")
+                print(f"Added {field_name} column to human_feedback table")
+            except Exception as e:
+                # Column might already exist, which is fine
+                if "duplicate column name" not in str(e).lower():
+                    print(f"Migration note for {field_name}: {e}")
+        
         self.conn.commit()
     
     def store_learning_record(self, source_type: str, source_file: str, 
@@ -239,17 +311,52 @@ class LearningDatabase:
                            human_correction: str, routing_queue: str = None,
                            feedback_text: str = "", expert_name: str = "",
                            feedback_type: str = "", supporting_evidence: Dict[str, Any] = None,
-                           learning_record_id: int = None) -> int:
+                           learning_record_id: int = None, conversation_id: str = None,
+                           is_initial_feedback: bool = True, parent_feedback_id: int = None,
+                           llm_questions: str = "", human_responses: str = "",
+                           feedback_summary: str = "", conversation_status: str = "active",
+                           quality_score: float = 0.0) -> int:
         """Store human feedback and corrections."""
         cursor = self.conn.cursor()
-        cursor.execute("""
-            INSERT INTO human_feedback 
-            (invoice_id, original_agent_decision, human_correction, routing_queue,
-             feedback_text, expert_name, feedback_type, supporting_evidence, learning_record_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (invoice_id, original_decision, human_correction, routing_queue,
-              feedback_text, expert_name, feedback_type, 
-              json.dumps(supporting_evidence or {}), learning_record_id))
+        
+        # Check if we have the old schema (with feedback_id) or new schema
+        try:
+            cursor.execute("SELECT feedback_id FROM human_feedback LIMIT 1")
+            has_old_schema = True
+        except:
+            has_old_schema = False
+        
+        if has_old_schema:
+            # Use old schema with feedback_id
+            import uuid
+            feedback_id = f"fb_{uuid.uuid4().hex[:12]}"
+            cursor.execute("""
+                INSERT INTO human_feedback 
+                (feedback_id, feedback_type, content, expert_name, invoice_id, original_agent_decision, 
+                 human_correction, routing_queue, feedback_text, supporting_evidence, learning_record_id,
+                 conversation_id, is_initial_feedback, parent_feedback_id, llm_questions,
+                 human_responses, feedback_summary, conversation_status, quality_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (feedback_id, feedback_type, feedback_text, expert_name, invoice_id, original_decision,
+                  human_correction, routing_queue, feedback_text, 
+                  json.dumps(supporting_evidence or {}), learning_record_id,
+                  conversation_id, is_initial_feedback, parent_feedback_id, llm_questions,
+                  human_responses, feedback_summary, conversation_status, quality_score))
+        else:
+            # Use new schema
+            cursor.execute("""
+                INSERT INTO human_feedback 
+                (invoice_id, original_agent_decision, human_correction, routing_queue,
+                 feedback_text, expert_name, feedback_type, supporting_evidence, learning_record_id,
+                 conversation_id, is_initial_feedback, parent_feedback_id, llm_questions,
+                 human_responses, feedback_summary, conversation_status, quality_score)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (invoice_id, original_decision, human_correction, routing_queue,
+                  feedback_text, expert_name, feedback_type, 
+                  json.dumps(supporting_evidence or {}), learning_record_id,
+                  conversation_id, is_initial_feedback, parent_feedback_id, llm_questions,
+                  human_responses, feedback_summary, conversation_status, quality_score))
+        
         self.conn.commit()
         return cursor.lastrowid
     
@@ -299,6 +406,78 @@ class LearningDatabase:
             item['supporting_evidence'] = json.loads(item['supporting_evidence']) if item['supporting_evidence'] else {}
             feedback.append(item)
         return feedback
+    
+    def get_feedback_conversation(self, conversation_id: str) -> List[Dict[str, Any]]:
+        """Get all feedback items in a conversation."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT * FROM human_feedback 
+            WHERE conversation_id = ? 
+            ORDER BY created_at ASC
+        """, (conversation_id,))
+        
+        feedback = []
+        for row in cursor.fetchall():
+            item = dict(row)
+            item['supporting_evidence'] = json.loads(item['supporting_evidence']) if item['supporting_evidence'] else {}
+            feedback.append(item)
+        return feedback
+    
+    def get_active_conversations(self) -> List[Dict[str, Any]]:
+        """Get all active feedback conversations."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT conversation_id, invoice_id, expert_name, created_at, conversation_status
+            FROM human_feedback 
+            WHERE conversation_status = 'active' AND is_initial_feedback = TRUE
+            ORDER BY created_at DESC
+        """)
+        
+        conversations = []
+        for row in cursor.fetchall():
+            conversations.append(dict(row))
+        return conversations
+    
+    def update_feedback_conversation(self, feedback_id: int, llm_questions: str = None,
+                                   human_responses: str = None, feedback_summary: str = None,
+                                   conversation_status: str = None, quality_score: float = None) -> bool:
+        """Update a feedback conversation with LLM questions, responses, or summary."""
+        cursor = self.conn.cursor()
+        
+        updates = []
+        params = []
+        
+        if llm_questions is not None:
+            updates.append("llm_questions = ?")
+            params.append(llm_questions)
+        
+        if human_responses is not None:
+            updates.append("human_responses = ?")
+            params.append(human_responses)
+        
+        if feedback_summary is not None:
+            updates.append("feedback_summary = ?")
+            params.append(feedback_summary)
+        
+        if conversation_status is not None:
+            updates.append("conversation_status = ?")
+            params.append(conversation_status)
+        
+        if quality_score is not None:
+            updates.append("quality_score = ?")
+            params.append(quality_score)
+        
+        if not updates:
+            return False
+        
+        params.append(feedback_id)
+        query = f"UPDATE human_feedback SET {', '.join(updates)} WHERE id = ?"
+        
+        cursor.execute(query, params)
+        success = cursor.rowcount > 0
+        self.conn.commit()
+        
+        return success
     
     def get_learning_plans(self, status: str = None) -> List[Dict[str, Any]]:
         """Get learning plans, optionally filtered by status."""

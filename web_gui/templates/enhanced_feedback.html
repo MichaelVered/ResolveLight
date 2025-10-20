@@ -1,0 +1,466 @@
+{% extends "human_driven_base.html" %}
+
+{% block title %}Enhanced Expert Feedback - Human-Driven Learning{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-comments"></i> Enhanced Expert Feedback</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('feedback_history') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-history"></i> View History
+            </a>
+        </div>
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback Form with LLM Chat Interface -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Submit Expert Feedback with AI Guidance</h5>
+            </div>
+            <div class="card-body">
+                <!-- Initial Feedback Form -->
+                <form id="initialFeedbackForm" method="POST" action="{{ url_for('submit_initial_feedback') }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="invoice_id" class="form-label">Invoice ID *</label>
+                                <input type="text" class="form-control" id="invoice_id" name="invoice_id" required>
+                                <div class="form-text">The invoice ID that was processed incorrectly</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="expert_name" class="form-label">Your Name (Expert) *</label>
+                                <input type="text" class="form-control" id="expert_name" name="expert_name" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="original_decision" class="form-label">Agent's Original Decision *</label>
+                                <select class="form-select" id="original_decision" name="original_decision" required>
+                                    <option value="">Select decision...</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="human_correction" class="form-label">Your Correction *</label>
+                                <select class="form-select" id="human_correction" name="human_correction" required>
+                                    <option value="">Select correction...</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                    <option value="PENDING_APPROVAL">PENDING_APPROVAL</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="routing_queue" class="form-label">Routing Queue (if rejected)</label>
+                                <select class="form-select" id="routing_queue" name="routing_queue">
+                                    <option value="">Select queue...</option>
+                                    <option value="missing_data">Missing Data</option>
+                                    <option value="low_confidence_matches">Low Confidence Matches</option>
+                                    <option value="price_discrepancies">Price Discrepancies</option>
+                                    <option value="supplier_mismatch">Supplier Mismatch</option>
+                                    <option value="billing_discrepancies">Billing Discrepancies</option>
+                                    <option value="date_discrepancies">Date Discrepancies</option>
+                                    <option value="high_value_approval">High Value Approval</option>
+                                    <option value="general_exceptions">General Exceptions</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="feedback_type" class="form-label">Feedback Type *</label>
+                                <select class="form-select" id="feedback_type" name="feedback_type" required>
+                                    <option value="">Select type...</option>
+                                    <option value="routing_correction">Routing Correction</option>
+                                    <option value="validation_override">Validation Override</option>
+                                    <option value="business_rule">Business Rule</option>
+                                    <option value="data_quality">Data Quality Issue</option>
+                                    <option value="false_positive">False Positive</option>
+                                    <option value="false_negative">False Negative</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="feedback_text" class="form-label">Detailed Feedback *</label>
+                        <textarea class="form-control" id="feedback_text" name="feedback_text" rows="4" required 
+                                  placeholder="Please provide detailed feedback about why the agent's decision was incorrect and what the correct decision should be..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="additional_notes" class="form-label">Additional Notes</label>
+                        <textarea class="form-control" id="additional_notes" name="additional_notes" rows="2" 
+                                  placeholder="Any additional context or supporting information..."></textarea>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-outline-secondary me-md-2">Clear Form</button>
+                        <button type="submit" class="btn btn-primary" id="submitInitialFeedback">
+                            <i class="fas fa-paper-plane"></i> Submit Initial Feedback
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LLM Chat Interface (Hidden Initially) -->
+<div class="row mb-4" id="llmChatSection" style="display: none;">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-robot"></i> AI Assistant - Follow-up Questions</h5>
+                <small class="text-muted">The AI will ask specific questions to help extract actionable business rules from your feedback.</small>
+            </div>
+            <div class="card-body">
+                <!-- Chat Messages -->
+                <div id="chatMessages" class="chat-messages" style="height: 400px; overflow-y: auto; border: 1px solid #dee2e6; padding: 15px; margin-bottom: 15px; background-color: #f8f9fa;">
+                    <!-- Messages will be dynamically added here -->
+                </div>
+                
+                <!-- Human Response Form -->
+                <form id="humanResponseForm" style="display: none;">
+                    <div class="mb-3">
+                        <label for="humanResponse" class="form-label">Your Response:</label>
+                        <textarea class="form-control" id="humanResponse" name="humanResponse" rows="3" 
+                                  placeholder="Please provide your detailed response to the AI's questions..."></textarea>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-outline-secondary me-md-2" onclick="skipQuestions()">Skip Questions</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-reply"></i> Submit Response
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Final Summary Section -->
+                <div id="finalSummarySection" style="display: none;">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-check-circle"></i> Feedback Summary</h6>
+                        <p id="feedbackSummaryText">Your feedback has been summarized and is ready for the learning system.</p>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-success" onclick="completeFeedback()">
+                            <i class="fas fa-check"></i> Complete Feedback Process
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Feedback for Context -->
+{% if recent_feedback %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-history"></i> Recent Feedback (for context)</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Invoice ID</th>
+                                <th>Original Decision</th>
+                                <th>Expert Correction</th>
+                                <th>Expert</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for feedback in recent_feedback %}
+                            <tr>
+                                <td>{{ feedback.invoice_id }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if feedback.original_agent_decision == 'REJECTED' else 'success' if feedback.original_agent_decision == 'APPROVED' else 'warning' }}">
+                                        {{ feedback.original_agent_decision }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if feedback.human_correction == 'APPROVED' else 'danger' if feedback.human_correction == 'REJECTED' else 'warning' }}">
+                                        {{ feedback.human_correction }}
+                                    </span>
+                                </td>
+                                <td>{{ feedback.expert_name or 'Unknown' }}</td>
+                                <td>{{ feedback.feedback_type or 'N/A' }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if feedback.conversation_status == 'completed' else 'warning' if feedback.conversation_status == 'active' else 'secondary' }}">
+                                        {{ feedback.conversation_status or 'N/A' }}
+                                    </span>
+                                </td>
+                                <td>{{ feedback.created_at|datetime_format }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentConversationId = null;
+let currentFeedbackId = null;
+let currentQuestionIndex = 0;
+let llmQuestions = [];
+
+// Auto-fill invoice ID from URL parameters if available
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const invoiceId = urlParams.get('invoice_id');
+    if (invoiceId) {
+        document.getElementById('invoice_id').value = invoiceId;
+    }
+});
+
+// Handle initial feedback submission
+document.getElementById('initialFeedbackForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    // Show loading state
+    const submitBtn = document.getElementById('submitInitialFeedback');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    submitBtn.disabled = true;
+    
+    fetch('{{ url_for("submit_initial_feedback") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentConversationId = data.conversation_id;
+            currentFeedbackId = data.feedback_id;
+            llmQuestions = data.questions || [];
+            
+            // Show LLM chat section
+            document.getElementById('llmChatSection').style.display = 'block';
+            document.getElementById('llmChatSection').scrollIntoView({ behavior: 'smooth' });
+            
+            // Display initial feedback in chat
+            addMessageToChat('human', 'Initial Feedback Submitted', formData.get('feedback_text'));
+            
+            // Display LLM questions
+            if (llmQuestions.length > 0) {
+                displayLLMQuestions();
+            } else {
+                showFinalSummary();
+            }
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while submitting feedback.');
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+function displayLLMQuestions() {
+    if (currentQuestionIndex < llmQuestions.length) {
+        const question = llmQuestions[currentQuestionIndex];
+        addMessageToChat('ai', `Question ${currentQuestionIndex + 1}`, question);
+        
+        // Show response form
+        document.getElementById('humanResponseForm').style.display = 'block';
+        document.getElementById('humanResponse').focus();
+    } else {
+        showFinalSummary();
+    }
+}
+
+function addMessageToChat(sender, title, content) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `mb-3 ${sender === 'ai' ? 'text-start' : 'text-end'}`;
+    
+    const badgeClass = sender === 'ai' ? 'bg-primary' : 'bg-success';
+    const icon = sender === 'ai' ? 'fas fa-robot' : 'fas fa-user';
+    
+    messageDiv.innerHTML = `
+        <div class="d-flex ${sender === 'ai' ? 'justify-content-start' : 'justify-content-end'}">
+            <div class="card ${sender === 'ai' ? 'ms-0' : 'me-0'}" style="max-width: 80%;">
+                <div class="card-header py-2">
+                    <span class="badge ${badgeClass}"><i class="${icon}"></i> ${title}</span>
+                </div>
+                <div class="card-body py-2">
+                    <p class="mb-0">${content}</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Handle human response submission
+document.getElementById('humanResponseForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const response = document.getElementById('humanResponse').value.trim();
+    if (!response) {
+        alert('Please provide a response to the question.');
+        return;
+    }
+    
+    // Add human response to chat
+    addMessageToChat('human', `Response ${currentQuestionIndex + 1}`, response);
+    
+    // Submit response to server
+    fetch('{{ url_for("submit_human_response") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId,
+            feedback_id: currentFeedbackId,
+            question_index: currentQuestionIndex,
+            response: response
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            currentQuestionIndex++;
+            document.getElementById('humanResponse').value = '';
+            
+            if (currentQuestionIndex < llmQuestions.length) {
+                // Show next question
+                setTimeout(() => {
+                    displayLLMQuestions();
+                }, 1000);
+            } else {
+                // All questions answered, show summary
+                setTimeout(() => {
+                    showFinalSummary();
+                }, 1000);
+            }
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while submitting response.');
+    });
+});
+
+function skipQuestions() {
+    if (confirm('Are you sure you want to skip the remaining questions? This will complete the feedback process with the information provided so far.')) {
+        showFinalSummary();
+    }
+}
+
+function showFinalSummary() {
+    // Hide response form
+    document.getElementById('humanResponseForm').style.display = 'none';
+    
+    // Show final summary section
+    document.getElementById('finalSummarySection').style.display = 'block';
+    
+    // Generate summary
+    fetch('{{ url_for("generate_feedback_summary") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('feedbackSummaryText').innerHTML = data.summary;
+        }
+    })
+    .catch(error => {
+        console.error('Error generating summary:', error);
+    });
+}
+
+function completeFeedback() {
+    // Mark conversation as completed
+    fetch('{{ url_for("complete_feedback_conversation") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Feedback process completed successfully! Your feedback has been summarized and is ready for the learning system.');
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while completing the feedback process.');
+    });
+}
+</script>
+
+<style>
+.chat-messages {
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+}
+
+.card-header {
+    background-color: rgba(0,0,0,0.03);
+    border-bottom: 1px solid rgba(0,0,0,0.125);
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+{% endblock %}

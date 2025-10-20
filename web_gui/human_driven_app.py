@@ -6,6 +6,7 @@ Focuses on expert feedback collection and learning plan generation.
 import os
 import sys
 import json
+import uuid
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
@@ -18,6 +19,7 @@ from learning_agent.database import LearningDatabase
 from learning_agent.flexible_database import FlexibleDatabase
 from learning_agent.flexible_exception_parser import FlexibleExceptionParser
 from learning_agent.human_driven_learning_agent import HumanDrivenLearningAgent
+from learning_agent.feedback_llm_service import FeedbackLLMService
 
 # Load environment variables from .env file
 try:
@@ -56,15 +58,15 @@ def dashboard():
     # Get pending exceptions for review
     pending_exceptions = local_db.get_pending_exceptions()
     
-    # Get recent learning plans
-    recent_plans = local_db.get_learning_plans()[:10]  # Last 10 plans
+    # Get active feedback conversations
+    active_conversations = local_db.get_active_conversations()[:10]  # Last 10 conversations
     
     local_db.close()
     
     return render_template('human_driven_dashboard.html', 
                          stats=stats, 
                          pending_exceptions=pending_exceptions, 
-                         recent_plans=recent_plans)
+                         active_conversations=active_conversations)
 
 
 @app.route('/feedback')
@@ -78,7 +80,7 @@ def feedback():
     
     local_db.close()
     
-    return render_template('human_driven_feedback.html', recent_feedback=recent_feedback)
+    return render_template('enhanced_feedback.html', recent_feedback=recent_feedback)
 
 
 @app.route('/feedback/submit', methods=['POST'])
@@ -126,82 +128,221 @@ def submit_feedback():
         return redirect(url_for('feedback'))
 
 
-@app.route('/generate_learning_plans', methods=['POST'])
-def generate_learning_plans():
-    """Generate learning plans from human feedback."""
+@app.route('/feedback/submit_initial', methods=['POST'])
+def submit_initial_feedback():
+    """Submit initial feedback and generate LLM questions."""
     try:
-        # Initialize learning agent
-        agent = HumanDrivenLearningAgent()
+        # Create a new database connection for this request
+        local_db = LearningDatabase(db_path)
         
-        # Generate learning plans from feedback
-        results = agent.generate_learning_plans_from_feedback()
+        # Generate conversation ID
+        conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
         
-        if results['learning_plans_generated'] > 0:
-            flash(f'Generated {results["learning_plans_generated"]} learning plans from {results["feedback_analyzed"]} feedback items', 'success')
-        else:
-            flash('No learning plans generated. Please add more human feedback first.', 'info')
+        invoice_id = request.form.get('invoice_id', '')
+        original_decision = request.form.get('original_decision', '')
+        human_correction = request.form.get('human_correction', '')
+        routing_queue = request.form.get('routing_queue', '')
+        feedback_text = request.form.get('feedback_text', '')
+        expert_name = request.form.get('expert_name', '')
+        feedback_type = request.form.get('feedback_type', '')
         
-        agent.close()
-        return redirect(url_for('learning_plans'))
+        # Get supporting evidence
+        supporting_evidence = {
+            'timestamp': datetime.now().isoformat(),
+            'user_agent': request.headers.get('User-Agent', ''),
+            'additional_notes': request.form.get('additional_notes', ''),
+            'expert_confidence': request.form.get('expert_confidence', 'high')
+        }
+        
+        # Store initial feedback
+        feedback_id = local_db.store_human_feedback(
+            invoice_id=invoice_id,
+            original_decision=original_decision,
+            human_correction=human_correction,
+            routing_queue=routing_queue,
+            feedback_text=feedback_text,
+            expert_name=expert_name,
+            feedback_type=feedback_type,
+            supporting_evidence=supporting_evidence,
+            conversation_id=conversation_id,
+            is_initial_feedback=True
+        )
+        
+        # Generate LLM questions
+        llm_service = FeedbackLLMService()
+        feedback_data = {
+            'invoice_id': invoice_id,
+            'original_agent_decision': original_decision,
+            'human_correction': human_correction,
+            'routing_queue': routing_queue,
+            'feedback_text': feedback_text,
+            'expert_name': expert_name,
+            'feedback_type': feedback_type
+        }
+        
+        llm_result = llm_service.generate_feedback_questions(feedback_data)
+        questions = llm_result.get('questions', [])
+        
+        # Store LLM questions
+        if questions:
+            local_db.update_feedback_conversation(
+                feedback_id=feedback_id,
+                llm_questions=json.dumps(questions)
+            )
+        
+        local_db.close()
+        llm_service.close()
+        
+        return jsonify({
+            'success': True,
+            'conversation_id': conversation_id,
+            'feedback_id': feedback_id,
+            'questions': questions,
+            'reasoning': llm_result.get('reasoning', ''),
+            'expected_outcome': llm_result.get('expected_outcome', '')
+        })
         
     except Exception as e:
-        flash(f'Error generating learning plans: {str(e)}', 'error')
-        return redirect(url_for('dashboard'))
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
 
 
-@app.route('/learning_plans')
-def learning_plans():
-    """Learning plans management page."""
-    status_filter = request.args.get('status', '')
-    plans = db.get_learning_plans(status_filter) if status_filter else db.get_learning_plans()
-    
-    return render_template('human_driven_learning_plans.html', plans=plans, current_filter=status_filter)
+@app.route('/feedback/submit_response', methods=['POST'])
+def submit_human_response():
+    """Submit human response to LLM questions."""
+    try:
+        data = request.get_json()
+        
+        local_db = LearningDatabase(db_path)
+        
+        # Get the conversation
+        conversation = local_db.get_feedback_conversation(data['conversation_id'])
+        if not conversation:
+            return jsonify({'success': False, 'message': 'Conversation not found'}), 404
+        
+        # Store the human response
+        response_id = local_db.store_human_feedback(
+            invoice_id=conversation[0]['invoice_id'],
+            original_decision=conversation[0]['original_agent_decision'],
+            human_correction=conversation[0]['human_correction'],
+            routing_queue=conversation[0]['routing_queue'],
+            feedback_text=data['response'],
+            expert_name=conversation[0]['expert_name'],
+            feedback_type='follow_up_response',
+            conversation_id=data['conversation_id'],
+            is_initial_feedback=False,
+            parent_feedback_id=data['feedback_id']
+        )
+        
+        local_db.close()
+        
+        return jsonify({
+            'success': True,
+            'response_id': response_id
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
 
 
-@app.route('/learning_plans/<int:plan_id>')
-def learning_plan_detail(plan_id):
-    """Detailed view of a specific learning plan."""
-    plans = db.get_learning_plans()
-    plan = next((p for p in plans if p['id'] == plan_id), None)
-    
-    if not plan:
-        flash('Learning plan not found', 'error')
-        return redirect(url_for('learning_plans'))
-    
-    # Get source feedback items
-    source_feedback_ids = plan.get('source_learning_records', [])
-    source_feedback = []
-    for feedback_id in source_feedback_ids:
-        feedback_items = db.get_human_feedback()
-        feedback = next((f for f in feedback_items if f['id'] == feedback_id), None)
-        if feedback:
-            source_feedback.append(feedback)
-    
-    return render_template('human_driven_learning_plan_detail.html', plan=plan, source_feedback=source_feedback)
+@app.route('/feedback/generate_summary', methods=['POST'])
+def generate_feedback_summary():
+    """Generate summary of the feedback conversation."""
+    try:
+        data = request.get_json()
+        
+        llm_service = FeedbackLLMService()
+        summary_result = llm_service.summarize_feedback_conversation(data['conversation_id'])
+        
+        if 'error' in summary_result:
+            return jsonify({
+                'success': False,
+                'message': summary_result['error']
+            }), 500
+        
+        # Store the summary
+        local_db = LearningDatabase(db_path)
+        conversation = local_db.get_feedback_conversation(data['conversation_id'])
+        if conversation:
+            # Update the initial feedback with the summary
+            local_db.update_feedback_conversation(
+                feedback_id=conversation[0]['id'],
+                feedback_summary=json.dumps(summary_result),
+                conversation_status='ready_for_learning'
+            )
+        
+        local_db.close()
+        llm_service.close()
+        
+        # Format summary for display
+        summary_text = f"""
+        <strong>Business Rules Extracted:</strong> {len(summary_result.get('business_rules', []))}<br>
+        <strong>System Improvements:</strong> {len(summary_result.get('system_improvements', []))}<br>
+        <strong>Overall Quality:</strong> {summary_result.get('feedback_quality', {}).get('overall_quality', 'Unknown')}<br>
+        <br>
+        <strong>Summary:</strong><br>
+        {summary_result.get('summary', 'No summary available')}
+        """
+        
+        return jsonify({
+            'success': True,
+            'summary': summary_text,
+            'full_summary': summary_result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
 
 
-@app.route('/learning_plans/<int:plan_id>/approve', methods=['POST'])
-def approve_learning_plan(plan_id):
-    """Approve a learning plan."""
-    approved_by = request.form.get('expert_name', 'Unknown Expert')
-    db.update_learning_plan_status(plan_id, 'approved', approved_by)
-    flash(f'Learning plan {plan_id} approved by {approved_by}', 'success')
-    return redirect(url_for('learning_plan_detail', plan_id=plan_id))
+@app.route('/feedback/complete', methods=['POST'])
+def complete_feedback_conversation():
+    """Mark feedback conversation as completed."""
+    try:
+        data = request.get_json()
+        
+        local_db = LearningDatabase(db_path)
+        conversation = local_db.get_feedback_conversation(data['conversation_id'])
+        
+        if conversation:
+            local_db.update_feedback_conversation(
+                feedback_id=conversation[0]['id'],
+                conversation_status='completed'
+            )
+        
+        local_db.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Feedback conversation completed successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
 
 
-@app.route('/learning_plans/<int:plan_id>/reject', methods=['POST'])
-def reject_learning_plan(plan_id):
-    """Reject a learning plan."""
-    reason = request.form.get('rejection_reason', 'No reason provided')
-    db.update_learning_plan_status(plan_id, 'rejected')
-    flash(f'Learning plan {plan_id} rejected: {reason}', 'warning')
-    return redirect(url_for('learning_plan_detail', plan_id=plan_id))
+# Learning plan generation removed - will be implemented in next stage
+
+
+# Learning plans routes removed - will be implemented in next stage
 
 
 @app.route('/feedback_history')
 def feedback_history():
     """View all human feedback history."""
-    feedback_items = db.get_human_feedback()
+    local_db = LearningDatabase(db_path)
+    feedback_items = local_db.get_human_feedback()
+    local_db.close()
     
     return render_template('human_driven_feedback_history.html', feedback_items=feedback_items)
 
@@ -209,7 +350,9 @@ def feedback_history():
 @app.route('/api/stats')
 def api_stats():
     """API endpoint for database statistics."""
-    stats = db.get_database_stats()
+    local_db = LearningDatabase(db_path)
+    stats = local_db.get_database_stats()
+    local_db.close()
     return jsonify(stats)
 
 
@@ -302,17 +445,59 @@ def submit_exception_review():
             human_correction=data.get('human_correction', 'APPROVED')
         )
         
-        # Also store as human feedback for learning
+        # Also store as human feedback for learning and trigger enhanced feedback flow
         if success and data.get('expert_decision') == 'REJECT':
-            local_db.store_human_feedback(
+            # Generate conversation ID for enhanced feedback
+            conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
+            
+            # Store initial feedback
+            feedback_id = local_db.store_human_feedback(
                 invoice_id=data.get('invoice_id', ''),
-                original_agent_decision='REJECTED',
+                original_decision='REJECTED',
                 human_correction=data.get('human_correction', 'APPROVED'),
                 routing_queue=data.get('queue', ''),
                 feedback_text=data['expert_feedback'],
                 expert_name=data['expert_name'],
-                feedback_type='exception_correction'
+                feedback_type='exception_correction',
+                conversation_id=conversation_id,
+                is_initial_feedback=True
             )
+            
+            # Generate LLM questions for enhanced feedback
+            llm_service = FeedbackLLMService()
+            feedback_data = {
+                'invoice_id': data.get('invoice_id', ''),
+                'original_agent_decision': 'REJECTED',
+                'human_correction': data.get('human_correction', 'APPROVED'),
+                'routing_queue': data.get('queue', ''),
+                'feedback_text': data['expert_feedback'],
+                'expert_name': data['expert_name'],
+                'feedback_type': 'exception_correction'
+            }
+            
+            llm_result = llm_service.generate_feedback_questions(feedback_data)
+            questions = llm_result.get('questions', [])
+            
+            # Store LLM questions
+            if questions:
+                local_db.update_feedback_conversation(
+                    feedback_id=feedback_id,
+                    llm_questions=json.dumps(questions)
+                )
+            
+            llm_service.close()
+            
+            # Return enhanced feedback data
+            return jsonify({
+                'success': True,
+                'message': 'Exception review submitted successfully!',
+                'enhanced_feedback': True,
+                'conversation_id': conversation_id,
+                'feedback_id': feedback_id,
+                'questions': questions,
+                'reasoning': llm_result.get('reasoning', ''),
+                'expected_outcome': llm_result.get('expected_outcome', '')
+            })
         
         local_db.close()
         
@@ -465,7 +650,7 @@ if __name__ == '__main__':
     print("🌐 Starting Human-Driven Learning Agent Web GUI...")
     print("📊 Dashboard: http://localhost:5001")
     print("💬 Expert Feedback: http://localhost:5001/feedback")
-    print("📝 Learning Plans: http://localhost:5001/learning_plans")
+    print("📊 Active Conversations: http://localhost:5001/feedback")
     print("📋 Feedback History: http://localhost:5001/feedback_history")
     
     app.run(debug=True, host='0.0.0.0', port=5001)
