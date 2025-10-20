@@ -780,56 +780,66 @@ function completeFeedback() {
 }
 
 // Handle human response submission
-document.getElementById('humanResponseForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const response = document.getElementById('humanResponse').value.trim();
-    if (!response) {
-        alert('Please provide a response to the question.');
-        return;
-    }
-    
-    // Add human response to chat
-    addMessageToChat('human', `Response ${currentQuestionIndex + 1}`, response);
-    
-    // Submit response to server
-    fetch('/feedback/submit_response', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            conversation_id: currentConversationId,
-            feedback_id: currentFeedbackId,
-            question_index: currentQuestionIndex,
-            response: response
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            currentQuestionIndex++;
-            document.getElementById('humanResponse').value = '';
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('humanResponseForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
             
-            if (currentQuestionIndex < llmQuestions.length) {
-                // Show next question
-                setTimeout(() => {
-                    displayLLMQuestions();
-                }, 1000);
-            } else {
-                // All questions answered, show summary
-                setTimeout(() => {
-                    showFinalSummary();
-                }, 1000);
+            console.log('Form submission intercepted');
+            
+            const response = document.getElementById('humanResponse').value.trim();
+            if (!response) {
+                alert('Please provide a response to the question.');
+                return;
             }
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while submitting response.');
-    });
+            
+            // Add human response to chat
+            addMessageToChat('human', `Response ${currentQuestionIndex + 1}`, response);
+            
+            // Submit response to server
+            fetch('/feedback/submit_response', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    conversation_id: currentConversationId,
+                    feedback_id: currentFeedbackId,
+                    question_index: currentQuestionIndex,
+                    response: response
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentQuestionIndex++;
+                    document.getElementById('humanResponse').value = '';
+                    
+                    if (currentQuestionIndex < llmQuestions.length) {
+                        // Show next question
+                        setTimeout(() => {
+                            displayLLMQuestions();
+                        }, 1000);
+                    } else {
+                        // All questions answered, show summary
+                        setTimeout(() => {
+                            showFinalSummary();
+                        }, 1000);
+                    }
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while submitting response.');
+            });
+            
+            return false;
+        });
+    }
 });
 </script>
 

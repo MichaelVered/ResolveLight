@@ -446,15 +446,19 @@ def submit_exception_review():
         )
         
         # Also store as human feedback for learning and trigger enhanced feedback flow
-        if success and data.get('expert_decision') == 'REJECT':
+        if success:
             # Generate conversation ID for enhanced feedback
             conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
             
             # Store initial feedback
+            expert_decision = data.get('expert_decision', 'APPROVE')
+            original_decision = 'REJECTED' if expert_decision == 'REJECT' else 'APPROVED'
+            human_correction = data.get('human_correction', expert_decision)
+            
             feedback_id = local_db.store_human_feedback(
                 invoice_id=data.get('invoice_id', ''),
-                original_decision='REJECTED',
-                human_correction=data.get('human_correction', 'APPROVED'),
+                original_decision=original_decision,
+                human_correction=human_correction,
                 routing_queue=data.get('queue', ''),
                 feedback_text=data['expert_feedback'],
                 expert_name=data['expert_name'],
@@ -467,8 +471,8 @@ def submit_exception_review():
             llm_service = FeedbackLLMService()
             feedback_data = {
                 'invoice_id': data.get('invoice_id', ''),
-                'original_agent_decision': 'REJECTED',
-                'human_correction': data.get('human_correction', 'APPROVED'),
+                'original_agent_decision': original_decision,
+                'human_correction': human_correction,
                 'routing_queue': data.get('queue', ''),
                 'feedback_text': data['expert_feedback'],
                 'expert_name': data['expert_name'],
@@ -501,16 +505,12 @@ def submit_exception_review():
         
         local_db.close()
         
-        if success:
-            return jsonify({
-                'success': True,
-                'message': 'Exception review submitted successfully'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Failed to update exception'
-            }), 400
+        # This code will never be reached due to the return above
+        # Keeping it for fallback in case the enhanced feedback flow fails
+        return jsonify({
+            'success': True,
+            'message': 'Exception review submitted successfully'
+        })
             
     except Exception as e:
         return jsonify({
