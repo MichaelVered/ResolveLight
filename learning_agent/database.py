@@ -174,6 +174,7 @@ class LearningDatabase:
                 feedback_summary TEXT,
                 conversation_status VARCHAR(20) DEFAULT 'active',
                 quality_score REAL DEFAULT 0.0,
+                conversation_history TEXT,
                 FOREIGN KEY (learning_record_id) REFERENCES learning_records(id),
                 FOREIGN KEY (parent_feedback_id) REFERENCES human_feedback(id)
             )
@@ -249,7 +250,8 @@ class LearningDatabase:
             ("human_responses", "TEXT"),
             ("feedback_summary", "TEXT"),
             ("conversation_status", "VARCHAR(20) DEFAULT 'active'"),
-            ("quality_score", "REAL DEFAULT 0.0")
+            ("quality_score", "REAL DEFAULT 0.0"),
+            ("conversation_history", "TEXT")
         ]
         
         # Check if we need to add the new schema fields (for old databases)
@@ -805,6 +807,39 @@ class LearningDatabase:
                     if isinstance(po, dict) and po.get('po_number') == po_number:
                         return True
         return False
+
+    def append_to_conversation_history(self, conversation_id: str, content: str, content_type: str) -> bool:
+        """Append content to conversation history."""
+        try:
+            cursor = self.conn.cursor()
+            
+            # Get current conversation history
+            cursor.execute("""
+                SELECT conversation_history FROM human_feedback 
+                WHERE conversation_id = ? AND is_initial_feedback = TRUE
+            """, (conversation_id,))
+            result = cursor.fetchone()
+            
+            # Append new content
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            new_content = f"{content_type.upper()}: {content}\n"
+            
+            updated_history = (result[0] if result and result[0] else "") + new_content
+            
+            # Update the record
+            cursor.execute("""
+                UPDATE human_feedback 
+                SET conversation_history = ?
+                WHERE conversation_id = ? AND is_initial_feedback = TRUE
+            """, (updated_history, conversation_id))
+            
+            self.conn.commit()
+            return True
+            
+        except Exception as e:
+            print(f"Error appending to conversation history: {e}")
+            return False
 
     def close(self):
         """Close database connection."""

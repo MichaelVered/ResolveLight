@@ -467,6 +467,16 @@ def submit_exception_review():
                 is_initial_feedback=True
             )
             
+            # Initialize conversation history
+            initial_history = f"""INITIAL FEEDBACK:
+Expert: {data['expert_name']}
+Decision: {expert_decision}
+EXPERT FEEDBACK: {data['expert_feedback']}
+Correct Action: {expert_decision}
+
+"""
+            local_db.append_to_conversation_history(conversation_id, initial_history, "INITIAL_FEEDBACK")
+            
             # Generate LLM questions for enhanced feedback
             llm_service = FeedbackLLMService()
             feedback_data = {
@@ -511,6 +521,82 @@ def submit_exception_review():
             'success': True,
             'message': 'Exception review submitted successfully'
         })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/feedback/generate_next_question', methods=['POST'])
+def generate_next_question():
+    """Generate the next question based on conversation history."""
+    try:
+        data = request.get_json()
+        conversation_id = data.get('conversation_id')
+        current_question_index = data.get('current_question_index', 0)
+        
+        if not conversation_id:
+            return jsonify({
+                'success': False,
+                'message': 'Conversation ID required'
+            }), 400
+        
+        llm_service = FeedbackLLMService()
+        result = llm_service.generate_next_question(conversation_id, current_question_index)
+        llm_service.close()
+        
+        if 'error' in result:
+            return jsonify({
+                'success': False,
+                'message': result['error']
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'status': result.get('status', 'continue'),
+            'next_question': result.get('next_question', ''),
+            'reasoning': result.get('reasoning', ''),
+            'information_gathered': result.get('information_gathered', '')
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/feedback/append_conversation', methods=['POST'])
+def append_conversation():
+    """Append content to conversation history."""
+    try:
+        data = request.get_json()
+        conversation_id = data.get('conversation_id')
+        content = data.get('content', '')
+        content_type = data.get('content_type', '')
+        
+        if not conversation_id:
+            return jsonify({
+                'success': False,
+                'message': 'Conversation ID required'
+            }), 400
+        
+        local_db = LearningDatabase(db_path)
+        success = local_db.append_to_conversation_history(conversation_id, content, content_type)
+        local_db.close()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Content appended to conversation history'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to append to conversation history'
+            }), 500
             
     except Exception as e:
         return jsonify({

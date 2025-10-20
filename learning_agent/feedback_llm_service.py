@@ -307,6 +307,109 @@ Focus on extracting information that can be directly used to improve the system'
         
         return "\n".join(context_parts)
     
+    def generate_next_question(self, conversation_id: str, current_question_index: int) -> Dict[str, Any]:
+        """
+        Generate the next question based on conversation history.
+        Analyzes previous Q&A to determine if more questions are needed and what to ask next.
+        """
+        
+        # Get conversation history
+        conversation = self.db.get_feedback_conversation(conversation_id)
+        if not conversation:
+            return {'error': 'Conversation not found'}
+        
+        initial_feedback = conversation[0]
+        conversation_history = self._build_conversation_history(conversation)
+        
+        # Create context for next question generation
+        context = f"""
+CONVERSATION HISTORY:
+{conversation_history}
+
+CURRENT STATUS:
+- Question Index: {current_question_index}
+- Initial Feedback: {initial_feedback['feedback_text']}
+- Expert Decision: {initial_feedback['human_correction']}
+- Invoice ID: {initial_feedback['invoice_id']}
+- Routing Queue: {initial_feedback['routing_queue']}
+"""
+
+        prompt = f"""
+You are an expert business process analyst conducting a structured interview with a domain expert.
+
+CONTEXT:
+{context}
+
+YOUR TASK:
+Analyze the conversation so far and determine:
+1. Is the information gathered sufficient to extract actionable business rules?
+2. If not, what is the NEXT SINGLE question that will provide the most valuable information?
+
+DECISION CRITERIA:
+- If the expert's responses are clear and actionable, return "conversation_complete"
+- If responses are vague or incomplete, ask ONE specific follow-up question
+- Focus on extracting concrete thresholds, conditions, or business rules
+- Maximum 3 questions total (including this one)
+
+RESPONSE FORMAT (JSON):
+{{
+    "status": "continue|conversation_complete",
+    "next_question": "Specific question to ask next (only if status is 'continue')",
+    "reasoning": "Why this question is needed or why conversation is complete",
+    "information_gathered": "Summary of what we've learned so far"
+}}
+
+If status is "conversation_complete", the next_question field should be empty.
+"""
+
+        try:
+            response = self.model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Extract JSON from response
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                json_text = response_text[json_start:json_end].strip()
+            elif "{" in response_text and "}" in response_text:
+                json_start = response_text.find("{")
+                json_end = response_text.rfind("}") + 1
+                json_text = response_text[json_start:json_end]
+            else:
+                return {'error': f'Could not extract JSON from LLM response: {response_text[:200]}'}
+            
+            result = json.loads(json_text)
+            return result
+            
+        except json.JSONDecodeError as e:
+            return {'error': f'Error parsing LLM response as JSON: {e}'}
+        except Exception as e:
+            return {'error': f'Error generating next question: {e}'}
+
+    def _build_conversation_history(self, conversation: List[Dict[str, Any]]) -> str:
+        """Build a formatted conversation history string."""
+        history_parts = []
+        
+        # Add initial feedback
+        initial = conversation[0]
+        history_parts.append(f"INITIAL FEEDBACK:")
+        history_parts.append(f"Expert: {initial['expert_name']}")
+        history_parts.append(f"Decision: {initial['human_correction']}")
+        history_parts.append(f"EXPERT FEEDBACK: {initial['feedback_text']}")
+        history_parts.append(f"Correct Action: {initial.get('human_correction', 'N/A')}")
+        
+        # Add Q&A pairs
+        if len(conversation) > 1:
+            history_parts.append("\n")
+            for i, item in enumerate(conversation[1:], 1):
+                if item.get('feedback_type') == 'follow_up_response':
+                    # This is a human response
+                    history_parts.append(f"QUESTION {i}: [Previous question from system]")
+                    history_parts.append(f"RESPONSE {i}: {item['feedback_text']}")
+                    history_parts.append("")
+        
+        return "\n".join(history_parts)
+    
     def close(self):
         """Close database connection."""
         self.db.close()

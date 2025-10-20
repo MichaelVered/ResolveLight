@@ -653,12 +653,11 @@ function formatFieldValue(value) {
 let currentConversationId = null;
 let currentFeedbackId = null;
 let currentQuestionIndex = 0;
-let llmQuestions = [];
+let maxQuestions = 3;
 
 function showEnhancedFeedbackModal(data) {
     currentConversationId = data.conversation_id;
     currentFeedbackId = data.feedback_id;
-    llmQuestions = data.questions || [];
     currentQuestionIndex = 0;
     
     // Clear previous messages
@@ -669,29 +668,96 @@ function showEnhancedFeedbackModal(data) {
     // Display initial feedback in chat
     addMessageToChat('human', 'Initial Feedback Submitted', 'Exception review feedback submitted');
     
-    // Display LLM questions
-    if (llmQuestions.length > 0) {
-        displayLLMQuestions();
-    } else {
-        showFinalSummary();
-    }
+    // Start with first dynamic question
+    generateAndDisplayNextQuestion();
     
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('enhancedFeedbackModal'));
     modal.show();
 }
 
-function displayLLMQuestions() {
-    if (currentQuestionIndex < llmQuestions.length) {
-        const question = llmQuestions[currentQuestionIndex];
-        addMessageToChat('ai', `Question ${currentQuestionIndex + 1}`, question);
-        
-        // Show response form
-        document.getElementById('humanResponseForm').style.display = 'block';
-        document.getElementById('humanResponse').focus();
-    } else {
-        showFinalSummary();
+function generateAndDisplayNextQuestion() {
+    if (currentQuestionIndex >= maxQuestions) {
+        completeConversation();
+        return;
     }
+    
+    // Show loading indicator
+    addMessageToChat('ai', 'AI Thinking...', 'Analyzing conversation and generating next question...');
+    
+    // Generate next question dynamically
+    fetch('/feedback/generate_next_question', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId,
+            current_question_index: currentQuestionIndex
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.status === 'conversation_complete') {
+                // LLM decided conversation is complete
+                addMessageToChat('ai', 'Conversation Complete', data.reasoning);
+                setTimeout(() => {
+                    completeConversation();
+                }, 2000);
+            } else if (data.next_question) {
+                // Display the next question
+                currentQuestionIndex++;
+                addMessageToChat('ai', `Question ${currentQuestionIndex}`, data.next_question);
+                
+                // Append question to conversation history
+                fetch('/feedback/append_conversation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        conversation_id: currentConversationId,
+                        content: data.next_question,
+                        content_type: `QUESTION ${currentQuestionIndex}`
+                    })
+                });
+                
+                document.getElementById('humanResponseForm').style.display = 'block';
+                document.getElementById('humanResponse').focus();
+            } else {
+                // No more questions
+                completeConversation();
+            }
+        } else {
+            alert('Error generating next question: ' + data.message);
+            completeConversation();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error generating next question.');
+        completeConversation();
+    });
+}
+
+function completeConversation() {
+    // Append "CONVERSATION COMPLETE" to history
+    fetch('/feedback/append_conversation', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId,
+            content: '',
+            content_type: 'CONVERSATION COMPLETE'
+        })
+    });
+    
+    // Hide response form and show summary
+    document.getElementById('humanResponseForm').style.display = 'none';
+    document.getElementById('finalSummarySection').style.display = 'block';
 }
 
 function addMessageToChat(sender, title, content) {
@@ -721,7 +787,7 @@ function addMessageToChat(sender, title, content) {
 
 function skipQuestions() {
     if (confirm('Are you sure you want to skip the remaining questions? This will complete the feedback process with the information provided so far.')) {
-        showFinalSummary();
+        completeConversation();
     }
 }
 
@@ -787,8 +853,6 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             
-            console.log('Form submission intercepted');
-            
             const response = document.getElementById('humanResponse').value.trim();
             if (!response) {
                 alert('Please provide a response to the question.');
@@ -796,7 +860,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Add human response to chat
-            addMessageToChat('human', `Response ${currentQuestionIndex + 1}`, response);
+            addMessageToChat('human', `Response ${currentQuestionIndex}`, response);
             
             // Submit response to server
             fetch('/feedback/submit_response', {
@@ -814,20 +878,25 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    currentQuestionIndex++;
                     document.getElementById('humanResponse').value = '';
                     
-                    if (currentQuestionIndex < llmQuestions.length) {
-                        // Show next question
-                        setTimeout(() => {
-                            displayLLMQuestions();
-                        }, 1000);
-                    } else {
-                        // All questions answered, show summary
-                        setTimeout(() => {
-                            showFinalSummary();
-                        }, 1000);
-                    }
+                    // Append response to conversation history
+                    fetch('/feedback/append_conversation', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            conversation_id: currentConversationId,
+                            content: response,
+                            content_type: `RESPONSE ${currentQuestionIndex}`
+                        })
+                    });
+                    
+                    // Generate next question dynamically
+                    setTimeout(() => {
+                        generateAndDisplayNextQuestion();
+                    }, 1000);
                 } else {
                     alert('Error: ' + data.message);
                 }
