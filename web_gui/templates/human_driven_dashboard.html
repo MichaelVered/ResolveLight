@@ -189,9 +189,9 @@
                         <label for="expertDecision" class="form-label">Your Decision *</label>
                         <select class="form-select" id="expertDecision" name="expert_decision" required>
                             <option value="">Select decision...</option>
-                            <option value="APPROVE">Approve - Agent was correct</option>
-                            <option value="REJECT">Reject - Agent was wrong</option>
-                            <option value="OVERRIDE">Override - Special case</option>
+                            <option value="APPROVE">Exception is correct</option>
+                            <option value="REJECT">Exception is incorrect</option>
+                            <option value="OVERRIDE">Override - special case</option>
                         </select>
                     </div>
                     
@@ -430,7 +430,7 @@ function quickApprove(exceptionId) {
 // Handle expert decision change
 document.getElementById('expertDecision').addEventListener('change', function() {
     const correctionSection = document.getElementById('correctionSection');
-    if (this.value === 'REJECT' || this.value === 'OVERRIDE') {
+    if (this.value === 'APPROVE' || this.value === 'REJECT' || this.value === 'OVERRIDE') {
         correctionSection.style.display = 'block';
     } else {
         correctionSection.style.display = 'none';
