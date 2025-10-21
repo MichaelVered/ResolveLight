@@ -276,6 +276,15 @@ function syncExceptions() {
 function reviewException(exceptionId) {
     currentExceptionId = exceptionId;
     
+    // Clear form fields before showing modal
+    document.getElementById('expertName').value = '';
+    document.getElementById('expertDecision').value = '';
+    document.getElementById('expertFeedback').value = '';
+    document.getElementById('humanCorrection').value = '';
+    
+    // Hide correction section initially
+    document.getElementById('correctionSection').style.display = 'none';
+    
     // Call the working exception endpoint directly
     fetch(`/exception/${exceptionId}`)
     .then(response => response.json())
