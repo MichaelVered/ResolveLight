@@ -8,18 +8,26 @@
 
 ResolveLight is an advanced **agentic workflow system** for automated invoice-to-pay processing. It combines **LLM reasoning** with **code-based tools** to create a robust, real-world-ready solution that handles complex invoice validation, matching, and routing scenarios.
 
+**🔬 Now with Intelligent Learning**: ResolveLight includes a sophisticated learning system that analyzes expert feedback and generates actionable optimization plans through a playbook-based approach, enabling continuous improvement without code modifications.
+
 ### 🚀 Key Features
 
+**Core Processing:**
 - **🤖 Multi-Agent Architecture**: Sequential agents with specialized roles
 - **🔍 Fuzzy Matching**: Intelligent PO and contract resolution with confidence scoring
-- **📊 Comprehensive Validation**: 5+ validation tools covering all invoice aspects
+- **📊 Comprehensive Validation**: 8+ validation tools covering all invoice aspects
 - **🚨 Duplicate Detection**: Stateful duplicate prevention using processed invoice history
-- **🎯 Granular Routing**: 8 specialized exception queues with priority handling
+- **🎯 Granular Routing**: 9 specialized exception queues with priority handling
 - **📋 Flexible Line Item Validation**: Handles real-world scenarios with missing line items
 - **🔗 Three-Way Matching**: Invoice ↔ PO ↔ Contract validation
 - **📈 Audit Trails**: Complete logging and compliance tracking
-- **🔍 Smart Related Data**: Intelligent PO and contract lookup based on log file references
-- **🌐 Expert Review Dashboard**: Web-based interface for exception review and approval
+
+**Learning & Intelligence:**
+- **🧠 Playbook-Based Learning**: Reversible business rules without code changes
+- **👥 Expert Feedback Integration**: Human-driven learning from domain experts
+- **📊 Exception Analysis**: Intelligent pattern detection and optimization
+- **🔄 Continuous Improvement**: Self-evolving system through feedback loops
+- **🌐 Expert Review Dashboard**: Web-based interface for exception review and learning
 
 ## 🏗️ Architecture
 
@@ -30,16 +38,25 @@ graph TD
     A[SourceToPay Root Agent] --> B[Contract Matching Agent]
     B --> C[Validation Agent]
     C --> D[Triage Resolution Agent]
+    D --> E[Learning System]
     
-    B --> E[Fuzzy Matching Tool]
-    C --> F[Validation Runner Tool]
-    D --> G[Triage Resolution Tool]
+    B --> F[Fuzzy Matching Tool]
+    C --> G[Validation Runner Tool]
+    D --> H[Triage Resolution Tool]
+    E --> I[Playbook Engine]
     
-    F --> H[Supplier Match Tool]
-    F --> I[Line Item Validation Tool]
-    F --> J[Duplicate Check Tool]
-    F --> K[Overbilling Tool]
-    F --> L[Date Check Tool]
+    G --> J[Supplier Match Tool]
+    G --> K[Line Item Validation Tool]
+    G --> L[Duplicate Check Tool]
+    G --> M[Overbilling Tool]
+    G --> N[Date Check Tool]
+    G --> O[Currency Validation Tool]
+    G --> P[Payment Terms Tool]
+    G --> Q[Content Validation Tool]
+    
+    I --> R[Exception Override Rules]
+    I --> S[Business Logic Rules]
+    I --> T[Threshold Adjustments]
 ```
 
 ### Agent Responsibilities
@@ -47,8 +64,9 @@ graph TD
 | Agent | Role | Tools Used | Key Capabilities |
 |-------|------|------------|------------------|
 | **Contract Matching** | Resolves invoice to PO and contract | `fuzzy_matching_tool` | Fuzzy PO matching, confidence scoring, supplier validation |
-| **Validation** | Orchestrates comprehensive validation | `validation_runner_tool` | Coordinates 5 validation tools, provides detailed results |
+| **Validation** | Orchestrates comprehensive validation | `validation_runner_tool` | Coordinates 8 validation tools, provides detailed results |
 | **Triage Resolution** | Routes invoices and executes actions | `triage_resolution_tool` | Intelligent routing, logging, audit trails |
+| **Learning System** | Analyzes feedback and generates improvements | `playbook_engine` | Exception analysis, rule generation, continuous learning |
 
 ## 🛠️ Installation
 
@@ -104,7 +122,9 @@ ResolveLight/
 ├── 📁 learning_agent/             # Learning and database components
 │   ├── database.py                # SQLite database with smart related data lookup
 │   ├── log_analyzer.py            # Log file analysis
-│   └── human_driven_learning_agent.py
+│   ├── human_driven_learning_agent.py
+│   ├── feedback_llm_service.py    # LLM service for enhanced feedback collection
+│   └── flexible_exception_parser.py # Flexible exception parsing
 ├── 📁 json_files/                 # Sample data
 │   ├── golden_invoices/           # Golden dataset invoice JSON files
 │   ├── POs/                       # Purchase order files
@@ -177,13 +197,17 @@ ResolveLight/
 - PO number match: +10%
 
 ### 4. Validation Runner Tool
-**Purpose**: Orchestrates comprehensive validation across 4 tools
+**Purpose**: Orchestrates comprehensive validation across 8 tools
 
 **Validation Tools**:
 1. `line_item_validation_tool` - Line item validation
 2. `supplier_match_tool` - Supplier information matching
 3. `simple_overbilling_tool` - Billing amount validation
 4. `date_check_tool` - Date and payment terms validation
+5. `currency_validation_tool` - Currency validation
+6. `payment_terms_validation_tool` - Payment terms validation
+7. `content_validation_tool` - Content validation
+8. `duplicate_check_tool` - Duplicate detection
 
 ## 🎯 Routing System
 
@@ -258,6 +282,62 @@ LINE ITEM DISCREPANCIES:
 ```
 
 The system extracts `PO-2025-310A` from this log entry and automatically provides the complete PO and contract data for expert review.
+
+## 🧠 Learning System
+
+### Playbook-Based Learning Architecture
+
+ResolveLight includes an intelligent learning system that enables continuous improvement through expert feedback without requiring code modifications.
+
+**Key Features:**
+- **🔄 Reversible Learning**: Business rules can be modified and rolled back instantly
+- **👥 Expert-Driven**: Domain experts provide feedback through intuitive web interface
+- **📊 Pattern Analysis**: System identifies recurring issues and optimization opportunities
+- **🎯 Actionable Plans**: LLM generates specific, implementable improvement plans
+
+### Learning Workflow
+
+```mermaid
+graph LR
+    A[Exception Generated] --> B[Expert Review]
+    B --> C[Feedback Collection]
+    C --> D[Pattern Analysis]
+    D --> E[Learning Plan Generation]
+    E --> F[Plan Review & Approval]
+    F --> G[Playbook Update]
+    G --> H[System Improvement]
+```
+
+### Learning Plan Types
+
+The system can generate various types of optimization plans:
+
+| Plan Type | Description | Example |
+|-----------|-------------|---------|
+| **Exception Override Rules** | Override specific exceptions based on conditions | "Allow 15% price increases for Supplier A" |
+| **Threshold Adjustments** | Modify confidence thresholds and limits | "Lower confidence threshold to 60% for approved suppliers" |
+| **Routing Optimizations** | Improve queue routing logic | "Auto-approve invoices under $5K for trusted suppliers" |
+| **Business Rule Additions** | Add new validation rules | "Require manager approval for contracts over $50K" |
+| **Tool Enhancements** | Improve validation tool behavior | "Add fuzzy matching for supplier names" |
+
+### Expert Feedback Collection
+
+**Enhanced Feedback Process:**
+1. **Structured Q&A**: LLM generates specific questions to extract actionable business rules
+2. **Conversation Tracking**: Multi-turn conversations to gather complete context
+3. **Quality Assessment**: Automatic evaluation of feedback completeness and actionability
+4. **Rule Generation**: Transform expert input into implementable playbook rules
+
+**Example Expert Feedback Flow:**
+```
+Expert: "This 15% price increase should be approved for Supplier A"
+LLM Questions:
+- "What is the exact percentage limit for Supplier A?"
+- "Does this apply to all contracts or specific ones?"
+- "Are there any conditions or exceptions?"
+Expert Responses: [Detailed business rules]
+Result: Playbook rule generated and applied
+```
 
 ## 📊 Usage Examples
 

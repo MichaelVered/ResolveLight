@@ -1,15 +1,16 @@
 # ResolveLight Learning Agent
 
-An intelligent learning system that analyzes ResolveLight agent performance and generates optimization plans based on system logs and human feedback. The system supports both autonomous learning and human-driven learning workflows.
+An intelligent learning system that analyzes ResolveLight agent performance and generates optimization plans based on system logs and human feedback. The system supports both autonomous learning and human-driven learning workflows with a **playbook-based approach** for reversible business rule management.
 
 ## 🎯 Overview
 
 The Learning Agent is a standalone system that:
 - **Analyzes** system logs to identify learning opportunities
 - **Generates** intelligent optimization plans using LLM
-- **Collects** human feedback through a web interface
+- **Collects** human feedback through enhanced web interface
 - **Tracks** learning progress and system improvements
 - **Supports** both autonomous and human-driven learning modes
+- **Enables** reversible business rule changes without code modifications
 
 ## 🏗️ Architecture
 
@@ -20,6 +21,8 @@ ResolveLight/
 │   ├── human_driven_learning_agent.py # Human-driven learning agent
 │   ├── log_analyzer.py               # Log analysis and pattern detection
 │   ├── exception_parser.py           # Exception log parsing
+│   ├── flexible_exception_parser.py  # Flexible exception parsing
+│   ├── feedback_llm_service.py       # Enhanced feedback collection
 │   ├── database.py                   # SQLite database operations
 │   └── __init__.py
 ├── web_gui/                          # Web interface for human feedback
@@ -101,15 +104,20 @@ Then open http://localhost:5000 in your browser.
 
 ### Learning Plan Types
 The LLM can generate various types of optimization plans:
+
+**Playbook-Based Plans (Reversible):**
+- `exception_override_rules`: Override specific exceptions based on conditions
+- `threshold_adjustments`: Modify confidence thresholds and limits
+- `routing_optimizations`: Improve queue routing logic
+- `business_rule_additions`: Add new validation rules
+- `supplier_specific_rules`: Create supplier-specific business logic
+
+**Code-Based Plans (Traditional):**
 - `prompt_optimization`: Improve agent instructions
 - `tool_enhancement`: Modify validation tools
-- `new_validation_rule`: Add business logic
 - `fuzzy_matching_improvement`: Enhance matching algorithms
-- `confidence_threshold_adjustment`: Tune decision thresholds
-- `routing_logic_optimization`: Improve queue routing
 - `data_validation_enhancement`: Better data quality checks
 - `exception_handling_improvement`: Better error handling
-- `business_rule_addition`: Add new business rules
 - `performance_optimization`: Speed/memory improvements
 
 ## 🌟 Key Features
@@ -120,13 +128,17 @@ The LLM can generate various types of optimization plans:
 - **Structured Workflow**: Clear process from exception review to learning plan approval
 - **Data Integrity**: Only presents information explicitly found in logs
 - **No Interpretation**: System doesn't attempt to fix or interpret missing data
+- **Enhanced Feedback Collection**: LLM-driven Q&A to extract actionable business rules
+- **Conversation Tracking**: Multi-turn conversations for complete context gathering
+- **Reversible Learning**: Business rules can be modified and rolled back instantly
 
 ### Exception Review Process
 1. **Automatic Parsing**: System extracts all available data from exception logs
 2. **Related Data Lookup**: Finds corresponding invoice files when available
 3. **Expert Review**: Financial experts review with complete context
-4. **Feedback Collection**: Structured feedback collection with business context
+4. **Enhanced Feedback Collection**: LLM generates specific questions to extract business rules
 5. **Learning Generation**: LLM creates optimization plans based on expert input
+6. **Playbook Integration**: Rules are applied through reversible playbook system
 
 ### Data Handling Philosophy
 - **Log-Only Data**: Only presents information explicitly stated in log files
@@ -134,15 +146,74 @@ The LLM can generate various types of optimization plans:
 - **Transparent Display**: Clearly shows "Not found" when data is unavailable
 - **Invoice Priority**: Always attempts to find invoice files (most critical data)
 
+## 🧠 Playbook-Based Learning System
+
+### Overview
+The playbook system enables **reversible business rule management** without requiring code modifications. This approach allows domain experts to modify system behavior through a rule-based overlay that can be instantly applied or rolled back.
+
+### Key Benefits
+- **🔄 Instant Reversibility**: Rules can be enabled/disabled without code deployment
+- **👥 Business User Control**: Domain experts can modify rules directly
+- **🛡️ Safe Experimentation**: Test rules on subset of invoices before full deployment
+- **📊 Audit Trail**: Complete tracking of rule changes and their impact
+- **⚡ Rapid Adaptation**: Respond to business changes without development cycles
+
+### Playbook Rule Types
+
+| Rule Type | Description | Example |
+|-----------|-------------|---------|
+| **Exception Override** | Override specific exceptions based on conditions | "Allow 15% price increases for Supplier A" |
+| **Threshold Adjustment** | Modify confidence thresholds and limits | "Lower confidence threshold to 60% for approved suppliers" |
+| **Routing Override** | Change queue routing based on conditions | "Route high-value invoices from trusted suppliers to auto-approval" |
+| **Business Rule Addition** | Add new validation logic | "Require manager approval for contracts over $50K" |
+| **Supplier-Specific Rules** | Create supplier-specific business logic | "Skip duplicate check for Supplier B recurring invoices" |
+
+### Rule Structure
+```json
+{
+  "rule_id": "RULE-001",
+  "name": "Supplier A Price Tolerance",
+  "type": "exception_override",
+  "status": "active",
+  "priority": 100,
+  "conditions": {
+    "supplier_name": "Supplier A",
+    "exception_type": "price_discrepancy",
+    "price_increase_percent": {"max": 15.0}
+  },
+  "action": {
+    "override_status": "PASS",
+    "reason": "Supplier A allows 15% price increases",
+    "confidence": 0.95
+  },
+  "metadata": {
+    "created_by": "expert_john_smith",
+    "source_feedback": "FB-456",
+    "test_cases": ["INV-001", "INV-002"]
+  }
+}
+```
+
+### Rule Application Process
+1. **Exception Generated**: ResolveLight generates exception
+2. **Playbook Check**: System checks applicable rules
+3. **Rule Evaluation**: Conditions are evaluated against invoice data
+4. **Action Application**: Matching rules are applied
+5. **Result Override**: Exception status/routing is modified
+6. **Audit Logging**: All rule applications are logged
+
 ## 🔍 How It Works
 
 ### Human-Driven Learning Workflow (Recommended)
 
 1. **Exception Parsing**: System automatically parses exception logs and extracts structured data
 2. **Expert Review**: Financial experts review exceptions with all relevant information pre-populated
-3. **Feedback Collection**: Experts provide corrections and business context
-4. **Learning Plan Generation**: LLM generates optimization plans based on expert feedback
-5. **Plan Review**: Experts review and approve learning plans before implementation
+3. **Enhanced Feedback Collection**: LLM generates specific questions to extract actionable business rules
+4. **Conversation Tracking**: Multi-turn Q&A to gather complete context and conditions
+5. **Learning Plan Generation**: LLM generates playbook rules based on expert feedback
+6. **Plan Review**: Experts review and approve playbook rules before activation
+7. **Rule Deployment**: Approved rules are activated in the playbook system
+8. **Impact Monitoring**: System tracks rule effectiveness and provides feedback
 
 ### Autonomous Learning Workflow
 
