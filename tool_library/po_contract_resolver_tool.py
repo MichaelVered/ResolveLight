@@ -44,16 +44,18 @@ def find_subdir_case_insensitive(parent: str, target_name: str) -> Optional[str]
     return None
 
 
-def resolve_directories(repo_root: str) -> Tuple[List[str], List[str], List[str]]:
+def resolve_directories(repo_root: str, fixed_po_dir: str = None, fixed_contract_dir: str = None) -> Tuple[List[str], List[str], List[str]]:
     """
     Returns lists of candidate directories for invoices, POs, and contracts.
     Supports both json_files/* and json files/* layouts with varied casing.
+    If fixed paths are provided, use those instead of searching relative to repo_root.
     """
     base_dirs = find_base_json_dirs(repo_root)
     invoice_dirs: List[str] = []
     po_dirs: List[str] = []
     contract_dirs: List[str] = []
 
+    # Handle invoices normally (relative to repo_root)
     for base in base_dirs:
         # Look for both "invoices" and "golden_invoices" folders
         inv = find_subdir_case_insensitive(base, "invoices")
@@ -63,13 +65,24 @@ def resolve_directories(repo_root: str) -> Tuple[List[str], List[str], List[str]
         if inv_golden:
             invoice_dirs.append(inv_golden)
 
-        pos = find_subdir_case_insensitive(base, "pos")
-        if pos:
-            po_dirs.append(pos)
+    # Use fixed paths for POs and contracts if provided
+    if fixed_po_dir and os.path.isdir(fixed_po_dir):
+        po_dirs = [fixed_po_dir]
+    else:
+        # Fallback to original logic
+        for base in base_dirs:
+            pos = find_subdir_case_insensitive(base, "pos")
+            if pos:
+                po_dirs.append(pos)
 
-        cons = find_subdir_case_insensitive(base, "contracts")
-        if cons:
-            contract_dirs.append(cons)
+    if fixed_contract_dir and os.path.isdir(fixed_contract_dir):
+        contract_dirs = [fixed_contract_dir]
+    else:
+        # Fallback to original logic
+        for base in base_dirs:
+            cons = find_subdir_case_insensitive(base, "contracts")
+            if cons:
+                contract_dirs.append(cons)
 
     return invoice_dirs, po_dirs, contract_dirs
 
