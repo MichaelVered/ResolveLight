@@ -293,6 +293,23 @@ class LearningDatabase:
                 if "duplicate column name" not in str(e).lower():
                     print(f"Migration note for {field_name}: {e}")
         
+        # Migration: Add learning fields to system_exceptions table
+        learning_fields = [
+            ("learning_insights", "TEXT"),
+            ("corrective_actions", "TEXT"),
+            ("learning_timestamp", "TIMESTAMP"),
+            ("learning_agent_version", "VARCHAR(50)")
+        ]
+        
+        for field_name, field_definition in learning_fields:
+            try:
+                cursor.execute(f"ALTER TABLE system_exceptions ADD COLUMN {field_name} {field_definition}")
+                print(f"Added {field_name} column to system_exceptions table")
+            except Exception as e:
+                # Column might already exist, which is fine
+                if "duplicate column name" not in str(e).lower():
+                    print(f"Migration note for {field_name}: {e}")
+        
         self.conn.commit()
     
     def store_learning_record(self, source_type: str, source_file: str, 
@@ -360,7 +377,17 @@ class LearningDatabase:
                   human_responses, feedback_summary, conversation_status, quality_score))
         
         self.conn.commit()
-        return cursor.lastrowid
+        feedback_id = cursor.lastrowid
+        
+        # Trigger learning processing for approval override cases
+        if (original_decision.upper() == 'REJECTED' and 
+            human_correction.upper() == 'APPROVED'):
+            try:
+                self._trigger_learning_processing(feedback_id)
+            except Exception as e:
+                print(f"Warning: Failed to trigger learning processing for feedback {feedback_id}: {e}")
+        
+        return feedback_id
     
     def store_learning_plan(self, plan_type: str, title: str, description: str,
                           source_learning_records: List[int], suggested_changes: Dict[str, Any],
@@ -622,15 +649,90 @@ class LearningDatabase:
         
         return success
     
+    def update_exception_learning(self, exception_id: str, learning_insights: str, 
+                                corrective_actions: str, learning_agent_version: str = "1.0") -> bool:
+        """Update an exception with learning insights and corrective actions."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE system_exceptions 
+            SET learning_insights = ?, corrective_actions = ?, 
+                learning_timestamp = CURRENT_TIMESTAMP, learning_agent_version = ?
+            WHERE exception_id = ?
+        """, (learning_insights, corrective_actions, learning_agent_version, exception_id))
+        
+        success = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+        
+        return success
+    
+    def get_exceptions_with_learning(self) -> List[Dict[str, Any]]:
+        """Get all exceptions that have learning insights."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM system_exceptions 
+            WHERE learning_insights IS NOT NULL AND learning_insights != ''
+            ORDER BY learning_timestamp DESC
+        """)
+        
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return [dict(row) for row in rows]
+    
+    def _trigger_learning_processing(self, feedback_id: int):
+        """Trigger learning processing for a feedback entry."""
+        try:
+            # Import here to avoid circular imports
+            from .feedback_learning_processor import FeedbackLearningProcessor
+            
+            # Process the learning asynchronously (in a separate thread or process)
+            # For now, we'll process it synchronously but this could be made async
+            processor = FeedbackLearningProcessor()
+            success = processor.process_feedback_learning(feedback_id)
+            
+            if success:
+                print(f"✅ Learning processing completed for feedback {feedback_id}")
+            else:
+                print(f"⚠️  Learning processing failed for feedback {feedback_id}")
+                
+            processor.close()
+            
+        except Exception as e:
+            print(f"Error in learning processing trigger: {e}")
+    
     def sync_exceptions_from_logs(self) -> int:
-        """Sync exceptions from log files to database."""
+        """Sync exceptions from log files to database - bidirectional sync."""
         from .exception_parser import ExceptionParser
         
         parser = ExceptionParser()
-        exceptions = parser.parse_all_exceptions()
+        current_exceptions = parser.parse_all_exceptions()
         
+        # Get current exception IDs from log files
+        current_exception_ids = {exc.exception_id for exc in current_exceptions}
+        
+        # Get all exception IDs currently in database
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT exception_id FROM system_exceptions")
+        db_exception_ids = {row[0] for row in cursor.fetchall()}
+        
+        # Find exceptions to remove (in DB but not in logs)
+        exceptions_to_remove = db_exception_ids - current_exception_ids
+        
+        # Remove old exceptions
+        removed_count = 0
+        for exception_id in exceptions_to_remove:
+            cursor.execute("DELETE FROM system_exceptions WHERE exception_id = ?", (exception_id,))
+            removed_count += 1
+        
+        # Add/update current exceptions
         synced_count = 0
-        for exc in exceptions:
+        for exc in current_exceptions:
             exception_data = {
                 'exception_id': exc.exception_id,
                 'invoice_id': exc.invoice_id,
@@ -652,7 +754,103 @@ class LearningDatabase:
             except Exception as e:
                 print(f"Error syncing exception {exc.exception_id}: {e}")
         
-        return synced_count
+        conn.commit()
+        conn.close()
+        
+    def delete_exception_completely(self, exception_id: str) -> bool:
+        """Delete an exception and all related data (human feedback, learning, etc.) from both database and log files."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Get the invoice_id and queue before deleting the exception
+            cursor.execute("SELECT invoice_id, queue FROM system_exceptions WHERE exception_id = ?", (exception_id,))
+            result = cursor.fetchone()
+            if not result:
+                return False
+            
+            invoice_id, queue = result[0], result[1]
+            
+            # Delete all related data in the correct order (respecting foreign key constraints)
+            # Use try-except for each table in case some don't exist
+            
+            # 1. Delete conversation history (if table exists)
+            try:
+                cursor.execute("DELETE FROM conversation_history WHERE conversation_id IN (SELECT conversation_id FROM human_feedback WHERE invoice_id = ?)", (invoice_id,))
+            except Exception:
+                pass  # Table doesn't exist, skip
+            
+            # 2. Delete human feedback
+            try:
+                cursor.execute("DELETE FROM human_feedback WHERE invoice_id = ?", (invoice_id,))
+            except Exception:
+                pass  # Table doesn't exist, skip
+            
+            # 3. Delete learning plans (if any)
+            try:
+                cursor.execute("DELETE FROM learning_plans WHERE invoice_id = ?", (invoice_id,))
+            except Exception:
+                pass  # Table doesn't exist, skip
+            
+            # 4. Delete learning records (if any)
+            try:
+                cursor.execute("DELETE FROM learning_records WHERE invoice_id = ?", (invoice_id,))
+            except Exception:
+                pass  # Table doesn't exist, skip
+            
+            # 5. Delete the exception itself from database
+            cursor.execute("DELETE FROM system_exceptions WHERE exception_id = ?", (exception_id,))
+            
+            # 6. Delete the exception from log files
+            self._remove_exception_from_log_files(exception_id, queue)
+            
+            conn.commit()
+            return True
+            
+        except Exception as e:
+            print(f"Error deleting exception {exception_id}: {e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+    
+    def _remove_exception_from_log_files(self, exception_id: str, queue: str) -> bool:
+        """Remove an exception from the appropriate log file."""
+        import os
+        import re
+        
+        try:
+            # Determine the log file path based on queue
+            log_file_path = f"system_logs/queue_{queue.lower()}.log"
+            
+            if not os.path.exists(log_file_path):
+                print(f"Log file {log_file_path} not found")
+                return False
+            
+            # Read the current log file
+            with open(log_file_path, 'r') as f:
+                content = f.read()
+            
+            # Find the exception block to remove
+            # Look for the pattern: === EXCEPTION_START === ... EXCEPTION_ID: {exception_id} ... === EXCEPTION_END ===
+            pattern = rf'=== EXCEPTION_START ===.*?EXCEPTION_ID: {re.escape(exception_id)}.*?=== EXCEPTION_END ==='
+            
+            # Remove the exception block
+            new_content = re.sub(pattern, '', content, flags=re.DOTALL)
+            
+            # Clean up extra newlines
+            new_content = re.sub(r'\n\s*\n\s*\n', '\n\n', new_content)
+            
+            # Write the updated content back to the file
+            with open(log_file_path, 'w') as f:
+                f.write(new_content)
+            
+            print(f"Removed exception {exception_id} from {log_file_path}")
+            return True
+            
+        except Exception as e:
+            print(f"Error removing exception from log files: {e}")
+            return False
 
     def get_related_data(self, invoice_id: str) -> Dict[str, Any]:
         """Get related data based on what's explicitly stated in the log files."""

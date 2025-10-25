@@ -295,7 +295,7 @@ def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: D
     log_entry = f"""=== EXCEPTION_START ===
 VERSION: 1.0
 EXCEPTION_ID: {exception_id}
-STATUS: OPEN
+STATUS: REJECTED
 QUEUE: {queue_name}
 PRIORITY: {priority.upper()}
 EXCEPTION_TYPE: {exception_type}
@@ -449,7 +449,7 @@ def triage_and_route(invoice_filename: str, repo_root: str | None = None) -> Dic
     
     # Also log to general exceptions ledger for audit trail
     exceptions_log = os.path.join(logs_dir, "exceptions_ledger.log")
-    _append_line(exceptions_log, f"[EXCEPTION] [{_ts()}] id={exception_id} status=OPEN type=VALIDATION_FAILED invoice_id={inv_id} queue={queue_name}")
+    _append_line(exceptions_log, f"[EXCEPTION] [{_ts()}] id={exception_id} status=REJECTED type=VALIDATION_FAILED invoice_id={inv_id} queue={queue_name}")
     
     # Log rejection for audit trail
     

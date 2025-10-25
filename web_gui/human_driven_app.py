@@ -379,6 +379,32 @@ def datetime_format(value):
     return value
 
 
+@app.route('/delete_exception/<exception_id>', methods=['DELETE'])
+def delete_exception(exception_id):
+    """Delete an exception and all related data."""
+    try:
+        local_db = LearningDatabase(db_path)
+        success = local_db.delete_exception_completely(exception_id)
+        local_db.close()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Exception {exception_id} deleted successfully'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'Exception {exception_id} not found or could not be deleted'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
 @app.route('/sync_exceptions', methods=['POST'])
 def sync_exceptions():
     """Sync exceptions from log files to database."""
