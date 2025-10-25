@@ -744,7 +744,7 @@ class LearningDatabase:
         import os
         
         po_dirs = [
-            os.path.join(repo_root, "json_files", "POs"),
+            "/Users/michaelzimmerman/projects/ResolveLight/json_files/POs",
             os.path.join(repo_root, "json_files", "golden_invoices"),
             os.path.join(repo_root, "json_files", "silver_invoices")
         ]
@@ -775,7 +775,7 @@ class LearningDatabase:
         import os
         
         contract_dirs = [
-            os.path.join(repo_root, "json_files", "contracts"),
+            "/Users/michaelzimmerman/projects/ResolveLight/json_files/contracts",
             os.path.join(repo_root, "json_files", "golden_invoices"),
             os.path.join(repo_root, "json_files", "silver_invoices")
         ]

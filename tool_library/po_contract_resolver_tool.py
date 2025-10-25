@@ -188,15 +188,9 @@ def resolve_invoice_to_po_and_contract(
         return result
     result["invoice"] = invoice_data
 
-    # Determine PO and contract directories based on how invoice was found
-    if os.path.isabs(invoice_filename) or "/" in invoice_filename or "\\" in invoice_filename:
-        # Direct path - derive PO and contract directories from invoice path
-        base_dir = os.path.dirname(os.path.dirname(invoice_path))  # Go up to json_files
-        po_dirs = [os.path.join(base_dir, "POs")]
-        contract_dirs = [os.path.join(base_dir, "contracts")]
-    else:
-        # Filename only - use resolved directories
-        invoice_dirs, po_dirs, contract_dirs = resolve_directories(root)
+    # Always use fixed PO and contract directories regardless of invoice location
+    po_dirs = ["/Users/michaelzimmerman/projects/ResolveLight/json_files/POs"]
+    contract_dirs = ["/Users/michaelzimmerman/projects/ResolveLight/json_files/contracts"]
 
     inv_po_number = invoice_data.get("purchase_order_number")
     normalized_po = normalize_token(inv_po_number)
