@@ -757,13 +757,15 @@ class LearningDatabase:
         conn.commit()
         conn.close()
         
+        return synced_count
+
     def delete_exception_completely(self, exception_id: str) -> bool:
-        """Delete an exception and all related data (human feedback, learning, etc.) from both database and log files."""
+        """Delete a specific exception and only its directly related data from both database and log files."""
         conn = self.get_connection()
         cursor = conn.cursor()
         
         try:
-            # Get the invoice_id and queue before deleting the exception
+            # Get the exception details first
             cursor.execute("SELECT invoice_id, queue FROM system_exceptions WHERE exception_id = ?", (exception_id,))
             result = cursor.fetchone()
             if not result:
@@ -771,37 +773,52 @@ class LearningDatabase:
             
             invoice_id, queue = result[0], result[1]
             
-            # Delete all related data in the correct order (respecting foreign key constraints)
+            # Delete only data directly related to this specific exception
             # Use try-except for each table in case some don't exist
             
-            # 1. Delete conversation history (if table exists)
+            # 1. Delete conversation history only for feedback directly related to this exception
             try:
-                cursor.execute("DELETE FROM conversation_history WHERE conversation_id IN (SELECT conversation_id FROM human_feedback WHERE invoice_id = ?)", (invoice_id,))
+                cursor.execute("""
+                    DELETE FROM conversation_history 
+                    WHERE conversation_id IN (
+                        SELECT conversation_id FROM human_feedback 
+                        WHERE invoice_id = ? AND feedback_type = 'exception_correction'
+                    )
+                """, (invoice_id,))
             except Exception:
                 pass  # Table doesn't exist, skip
             
-            # 2. Delete human feedback
+            # 2. Delete only human feedback directly related to this exception
+            # This is more conservative - only delete feedback that's explicitly linked to exception corrections
             try:
-                cursor.execute("DELETE FROM human_feedback WHERE invoice_id = ?", (invoice_id,))
+                cursor.execute("""
+                    DELETE FROM human_feedback 
+                    WHERE invoice_id = ? AND feedback_type = 'exception_correction'
+                """, (invoice_id,))
             except Exception:
                 pass  # Table doesn't exist, skip
             
-            # 3. Delete learning plans (if any)
+            # 3. Delete learning plans only if they're directly linked to this exception
             try:
-                cursor.execute("DELETE FROM learning_plans WHERE invoice_id = ?", (invoice_id,))
+                cursor.execute("""
+                    DELETE FROM learning_plans 
+                    WHERE invoice_id = ? AND source_learning_records IN (
+                        SELECT id FROM learning_records WHERE invoice_id = ?
+                    )
+                """, (invoice_id, invoice_id))
             except Exception:
                 pass  # Table doesn't exist, skip
             
-            # 4. Delete learning records (if any)
+            # 4. Delete learning records only for this specific invoice
             try:
                 cursor.execute("DELETE FROM learning_records WHERE invoice_id = ?", (invoice_id,))
             except Exception:
                 pass  # Table doesn't exist, skip
             
-            # 5. Delete the exception itself from database
+            # 5. Delete the specific exception from database
             cursor.execute("DELETE FROM system_exceptions WHERE exception_id = ?", (exception_id,))
             
-            # 6. Delete the exception from log files
+            # 6. Remove only this specific exception from log files
             self._remove_exception_from_log_files(exception_id, queue)
             
             conn.commit()
@@ -815,7 +832,7 @@ class LearningDatabase:
             conn.close()
     
     def _remove_exception_from_log_files(self, exception_id: str, queue: str) -> bool:
-        """Remove an exception from the appropriate log file."""
+        """Remove a specific exception from the appropriate log file."""
         import os
         import re
         
@@ -831,21 +848,34 @@ class LearningDatabase:
             with open(log_file_path, 'r') as f:
                 content = f.read()
             
-            # Find the exception block to remove
-            # Look for the pattern: === EXCEPTION_START === ... EXCEPTION_ID: {exception_id} ... === EXCEPTION_END ===
-            pattern = rf'=== EXCEPTION_START ===.*?EXCEPTION_ID: {re.escape(exception_id)}.*?=== EXCEPTION_END ==='
+            # Count exceptions before removal for verification
+            exception_count_before = content.count('=== EXCEPTION_START ===')
             
-            # Remove the exception block
+            # Find the specific exception block to remove
+            # Look for the pattern: === EXCEPTION_START === ... EXCEPTION_ID: {exception_id} ... === EXCEPTION_END ===
+            pattern = rf'=== EXCEPTION_START ===.*?EXCEPTION_ID:\s*{re.escape(exception_id)}.*?=== EXCEPTION_END ==='
+            
+            # Remove only the specific exception block
             new_content = re.sub(pattern, '', content, flags=re.DOTALL)
             
-            # Clean up extra newlines
-            new_content = re.sub(r'\n\s*\n\s*\n', '\n\n', new_content)
+            # Verify that exactly one exception was removed
+            exception_count_after = new_content.count('=== EXCEPTION_START ===')
+            if exception_count_after != exception_count_before - 1:
+                print(f"Warning: Expected to remove 1 exception, but removed {exception_count_before - exception_count_after}")
+                # Don't proceed if more than expected was removed
+                if exception_count_after < exception_count_before - 1:
+                    print(f"Aborting log file modification to prevent data loss")
+                    return False
+            
+            # Clean up extra newlines but preserve file structure
+            new_content = re.sub(r'\n\s*\n\s*\n+', '\n\n', new_content)
+            new_content = new_content.strip() + '\n' if new_content.strip() else ''
             
             # Write the updated content back to the file
             with open(log_file_path, 'w') as f:
                 f.write(new_content)
             
-            print(f"Removed exception {exception_id} from {log_file_path}")
+            print(f"Successfully removed exception {exception_id} from {log_file_path}")
             return True
             
         except Exception as e:
