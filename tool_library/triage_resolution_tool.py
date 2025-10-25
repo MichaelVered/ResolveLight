@@ -218,7 +218,7 @@ def _determine_routing_queue(tool_results: List[Dict[str, Any]], invoice_data: D
 
 def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: Dict[str, Any], exception_id: str, tool_results: List[Dict[str, Any]]) -> str:
     """
-    Create a queue-specific log entry with detailed context for human reviewers.
+    Create a queue-specific log entry in canonical format for human reviewers.
     """
     queue_name = queue_info["queue_name"]
     priority = queue_info["priority"]
@@ -227,6 +227,20 @@ def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: D
     inv_id = invoice_data.get("invoice_id", "<unknown>")
     po_num = invoice_data.get("purchase_order_number", "<unknown>")
     amount = float(invoice_data.get("summary", {}).get("billing_amount", 0))
+    supplier = invoice_data.get("supplier", "<unknown>")
+    
+    # Map queue names to exception types
+    exception_type_map = {
+        "missing_data": "MISSING_DATA",
+        "low_confidence_matches": "LOW_CONFIDENCE", 
+        "price_discrepancies": "PRICE_DISCREPANCY",
+        "supplier_mismatch": "SUPPLIER_MISMATCH",
+        "billing_discrepancies": "BILLING_DISCREPANCY",
+        "date_discrepancies": "DATE_DISCREPANCY",
+        "high_value_approval": "HIGH_VALUE_APPROVAL",
+        "general_exceptions": "GENERAL"
+    }
+    exception_type = exception_type_map.get(queue_name, "GENERAL")
     
     # Create detailed context based on queue type
     context_details = []
@@ -254,17 +268,48 @@ def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: D
             for exc in billing_tool.get("exceptions", []):
                 context_details.append(f"  - {exc}")
     
-    # Create the log entry
-    log_entry = f"""
-QUEUE: {queue_name.upper()}
-PRIORITY: {priority.upper()}
+    elif queue_name == "supplier_mismatch":
+        context_details.append("SUPPLIER MISMATCH:")
+        context_details.append("  - Supplier information mismatch")
+        context_details.append("  - Verify supplier details and PO matching")
+    
+    elif queue_name == "date_discrepancies":
+        context_details.append("DATE ISSUES:")
+        context_details.append("  - Date validation failed")
+        context_details.append("  - Check invoice dates, payment terms, and PO dates")
+    
+    elif queue_name == "high_value_approval":
+        context_details.append("HIGH VALUE INVOICE:")
+        context_details.append(f"  - Invoice amount: ${amount:,.2f}")
+        context_details.append("  - Requires manager approval due to high value")
+    
+    elif queue_name == "missing_data":
+        context_details.append("MISSING DATA:")
+        context_details.append("  - Required PO or contract data not found")
+        context_details.append("  - Verify data availability and matching criteria")
+    
+    else:  # general_exceptions
+        context_details.append("  - General validation failure")
+    
+    # Create canonical format log entry
+    log_entry = f"""=== EXCEPTION_START ===
+VERSION: 1.0
 EXCEPTION_ID: {exception_id}
-INVOICE: {inv_id} (PO: {po_num}, Amount: ${amount:,.2f})
-ROUTING_REASON: {routing_reason}
+STATUS: OPEN
+QUEUE: {queue_name}
+PRIORITY: {priority.upper()}
+EXCEPTION_TYPE: {exception_type}
 TIMESTAMP: {_ts()}
+INVOICE_ID: {inv_id}
+PO_NUMBER: {po_num}
+AMOUNT: ${amount:,.2f}
+SUPPLIER: {supplier}
+ROUTING_REASON: {routing_reason}
+CONFIDENCE_SCORE: {queue_info.get('confidence_score', 'N/A')}
+MANAGER_APPROVAL_REQUIRED: {'YES' if queue_info.get('requires_manager_approval', False) else 'NO'}
 
 CONTEXT:
-{chr(10).join(context_details) if context_details else "  - General validation failure"}
+{chr(10).join(context_details)}
 
 SUGGESTED_ACTIONS:
   - Review the specific issues listed above
@@ -272,10 +317,13 @@ SUGGESTED_ACTIONS:
   - Verify PO and contract details if matching issues
   - Approve manually if all checks pass after review
 
-MANAGER_APPROVAL_REQUIRED: {'YES' if queue_info.get('requires_manager_approval', False) else 'NO'}
-"""
+METADATA:
+  tool_version: 1.0.0
+  system_version: 2.1.0
+  processing_time: N/A
+=== EXCEPTION_END ==="""
     
-    return log_entry.strip()
+    return log_entry
 
 
 def triage_and_route(invoice_filename: str, repo_root: str | None = None) -> Dict[str, Any]:
