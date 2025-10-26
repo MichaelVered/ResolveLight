@@ -135,6 +135,80 @@ Make questions specific enough that the answers can be directly translated into 
             print(f"Error generating feedback questions: {e}")
             return {"questions": [], "reasoning": f"Error: {e}", "expected_outcome": ""}
     
+    def generate_concise_feedback_summary(self, conversation_id: str) -> Dict[str, Any]:
+        """
+        Generate a concise summary of the feedback conversation for storage.
+        This is called when the conversation is complete to create a clear summary.
+        """
+        
+        # Get the complete conversation
+        conversation = self.db.get_feedback_conversation(conversation_id)
+        
+        if not conversation:
+            return {"error": "Conversation not found"}
+        
+        # Create context for concise summarization
+        context = self._create_concise_summary_context(conversation)
+        
+        prompt = f"""
+You are an expert business process analyst creating a concise summary of feedback for system learning.
+
+CONVERSATION CONTEXT:
+{context}
+
+YOUR TASK:
+Create a concise, clear summary that captures the essential feedback and business rules for system improvement.
+
+SUMMARY REQUIREMENTS:
+1. Extract the key business rules and thresholds mentioned
+2. Identify the specific corrections or decisions made
+3. Note any conditions or exceptions that apply
+4. Keep it concise but actionable (maximum 200 words)
+5. Focus on information that can directly improve system decisions
+
+RESPONSE FORMAT (JSON):
+{{
+    "summary": "Concise summary of the feedback and key business rules extracted",
+    "key_rules": [
+        "Rule 1: Specific threshold or condition",
+        "Rule 2: Another important rule",
+        "Rule 3: Additional business logic"
+    ],
+    "decision_rationale": "Why the human correction was made",
+    "system_improvements": "What changes should be made to the system based on this feedback"
+}}
+
+Focus on creating a summary that can be easily understood and used for system improvement.
+"""
+
+        try:
+            response = self.model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # Extract JSON from response
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                json_text = response_text[json_start:json_end].strip()
+            elif "{" in response_text and "}" in response_text:
+                json_start = response_text.find("{")
+                json_end = response_text.rfind("}") + 1
+                json_text = response_text[json_start:json_end]
+            else:
+                print(f"Warning: Could not extract JSON from LLM response: {response_text[:200]}...")
+                return {"error": "Could not parse LLM response"}
+            
+            result = json.loads(json_text)
+            return result
+            
+        except json.JSONDecodeError as e:
+            print(f"Error parsing LLM response as JSON: {e}")
+            print(f"Response: {response_text[:500]}...")
+            return {"error": f"JSON parsing error: {e}"}
+        except Exception as e:
+            print(f"Error generating concise feedback summary: {e}")
+            return {"error": f"Error: {e}"}
+
     def summarize_feedback_conversation(self, conversation_id: str) -> Dict[str, Any]:
         """
         Summarize a complete feedback conversation for the next learning stage.
@@ -257,6 +331,31 @@ Focus on extracting information that can be directly used to improve the system'
         
         return "\n".join(context_parts)
     
+    def _create_concise_summary_context(self, conversation: List[Dict[str, Any]]) -> str:
+        """Create context for concise conversation summarization."""
+        context_parts = []
+        
+        context_parts.append("FEEDBACK CONVERSATION SUMMARY")
+        context_parts.append("=" * 40)
+        context_parts.append(f"Conversation ID: {conversation[0].get('conversation_id', 'N/A')}")
+        context_parts.append(f"Expert: {conversation[0].get('expert_name', 'N/A')}")
+        context_parts.append(f"Original Decision: {conversation[0].get('original_agent_decision', 'N/A')}")
+        context_parts.append(f"Human Correction: {conversation[0].get('human_correction', 'N/A')}")
+        context_parts.append(f"Invoice ID: {conversation[0].get('invoice_id', 'N/A')}")
+        context_parts.append(f"Routing Queue: {conversation[0].get('routing_queue', 'N/A')}")
+        
+        context_parts.append("\nCONVERSATION DETAILS:")
+        for i, exchange in enumerate(conversation, 1):
+            context_parts.append(f"\n--- Exchange {i} ---")
+            context_parts.append(f"Type: {'Initial Feedback' if exchange.get('is_initial_feedback') else 'Follow-up'}")
+            context_parts.append(f"Content: {exchange.get('feedback_text', 'N/A')}")
+            if exchange.get('llm_questions'):
+                context_parts.append(f"LLM Questions: {exchange.get('llm_questions')}")
+            if exchange.get('human_responses'):
+                context_parts.append(f"Human Responses: {exchange.get('human_responses')}")
+        
+        return "\n".join(context_parts)
+
     def _create_summarization_context(self, conversation: List[Dict[str, Any]]) -> str:
         """Create context for conversation summarization."""
         context_parts = []
@@ -311,7 +410,18 @@ Focus on extracting information that can be directly used to improve the system'
         """
         Generate the next question based on conversation history.
         Analyzes previous Q&A to determine if more questions are needed and what to ask next.
+        Enforces a maximum of 3 questions total.
         """
+        
+        # Enforce maximum 3 questions limit
+        MAX_QUESTIONS = 3
+        if current_question_index >= MAX_QUESTIONS:
+            return {
+                'status': 'conversation_complete',
+                'next_question': '',
+                'reasoning': f'Maximum of {MAX_QUESTIONS} questions reached. Conversation complete.',
+                'information_gathered': 'Maximum question limit reached'
+            }
         
         # Get conversation history
         conversation = self.db.get_feedback_conversation(conversation_id)
@@ -327,7 +437,7 @@ CONVERSATION HISTORY:
 {conversation_history}
 
 CURRENT STATUS:
-- Question Index: {current_question_index}
+- Question Index: {current_question_index} (Maximum: {MAX_QUESTIONS})
 - Initial Feedback: {initial_feedback['feedback_text']}
 - Expert Decision: {initial_feedback['human_correction']}
 - Invoice ID: {initial_feedback['invoice_id']}
@@ -349,7 +459,8 @@ DECISION CRITERIA:
 - If the expert's responses are clear and actionable, return "conversation_complete"
 - If responses are vague or incomplete, ask ONE specific follow-up question
 - Focus on extracting concrete thresholds, conditions, or business rules
-- Maximum 3 questions total (including this one)
+- STRICT LIMIT: Maximum {MAX_QUESTIONS} questions total (including this one)
+- If this would be question {MAX_QUESTIONS + 1} or higher, return "conversation_complete"
 
 RESPONSE FORMAT (JSON):
 {{

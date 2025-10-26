@@ -204,23 +204,26 @@ class LogAnalyzer:
                 
                 # Analyze confidence scores for low_confidence_matches
                 if "low_confidence" in queue_name and confidence_scores:
-                    avg_confidence = sum(confidence_scores) / len(confidence_scores)
-                    low_confidence_count = sum(1 for score in confidence_scores if score < 0.7)
-                    
-                    if avg_confidence < 0.6 or low_confidence_count >= 3:
-                        opportunities.append({
-                            'source_type': 'confidence_analysis',
-                            'source_file': queue_name,
-                            'learning_opportunity': f"Low confidence matching in {queue_name} (avg: {avg_confidence:.2f})",
-                            'confidence_score': 0.8,
-                            'analysis_notes': f"Average confidence: {avg_confidence:.2f}, Low confidence items: {low_confidence_count}",
-                            'source_data': {
-                                'queue_name': queue_name,
-                                'average_confidence': avg_confidence,
-                                'low_confidence_count': low_confidence_count,
-                                'confidence_scores': confidence_scores
-                            }
-                        })
+                    # Filter out None values from confidence scores
+                    valid_scores = [score for score in confidence_scores if score is not None]
+                    if valid_scores:
+                        avg_confidence = sum(valid_scores) / len(valid_scores)
+                        low_confidence_count = sum(1 for score in valid_scores if score < 0.7)
+                        
+                        if avg_confidence < 0.6 or low_confidence_count >= 3:
+                            opportunities.append({
+                                'source_type': 'confidence_analysis',
+                                'source_file': queue_name,
+                                'learning_opportunity': f"Low confidence matching in {queue_name} (avg: {avg_confidence:.2f})",
+                                'confidence_score': 0.8,
+                                'analysis_notes': f"Average confidence: {avg_confidence:.2f}, Low confidence items: {low_confidence_count}",
+                                'source_data': {
+                                    'queue_name': queue_name,
+                                    'average_confidence': avg_confidence,
+                                    'low_confidence_count': low_confidence_count,
+                                    'confidence_scores': confidence_scores
+                                }
+                            })
         
         except Exception as e:
             print(f"Error analyzing queue {queue_name}: {e}")
@@ -296,7 +299,7 @@ class LogAnalyzer:
                     })
             
             # Analyze high-value invoices
-            high_value_invoices = [inv for inv in invoices if inv.get('billing_amount', 0) > 10000]
+            high_value_invoices = [inv for inv in invoices if (inv.get('billing_amount') or 0) > 10000]
             if len(high_value_invoices) >= 3:
                 high_value_rejection_rate = sum(1 for inv in high_value_invoices if inv.get('processing_result') == 'REJECTED') / len(high_value_invoices)
                 

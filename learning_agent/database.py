@@ -34,6 +34,8 @@ class LearningDatabase:
         
         # Create tables if they don't exist (don't clear existing data)
         self._create_tables_if_not_exist()
+        # Ensure new columns exist for existing databases
+        self._ensure_new_columns_exist()
         self.conn.commit()
     
     def _drop_tables(self):
@@ -44,6 +46,24 @@ class LearningDatabase:
         cursor.execute("DROP TABLE IF EXISTS learning_records")
         cursor.execute("DROP TABLE IF EXISTS system_exceptions")
         cursor.execute("DROP TABLE IF EXISTS flexible_exceptions")
+    
+    def _ensure_new_columns_exist(self):
+        """Ensure new columns exist in existing databases for backward compatibility."""
+        cursor = self.conn.cursor()
+        
+        # Check if exception_validity column exists
+        try:
+            cursor.execute("SELECT exception_validity FROM human_feedback LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            cursor.execute("ALTER TABLE human_feedback ADD COLUMN exception_validity VARCHAR(20)")
+        
+        # Check if invoice_decision column exists
+        try:
+            cursor.execute("SELECT invoice_decision FROM human_feedback LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            cursor.execute("ALTER TABLE human_feedback ADD COLUMN invoice_decision VARCHAR(20)")
     
     def _create_tables_if_not_exist(self):
         """Create database tables with proper schema if they don't exist."""
@@ -87,6 +107,8 @@ class LearningDatabase:
                 feedback_summary TEXT,
                 conversation_status VARCHAR(20) DEFAULT 'active',
                 quality_score REAL DEFAULT 0.0,
+                exception_validity VARCHAR(20),
+                invoice_decision VARCHAR(20),
                 FOREIGN KEY (learning_record_id) REFERENCES learning_records(id),
                 FOREIGN KEY (parent_feedback_id) REFERENCES human_feedback(id)
             )
@@ -334,7 +356,8 @@ class LearningDatabase:
                            is_initial_feedback: bool = True, parent_feedback_id: int = None,
                            llm_questions: str = "", human_responses: str = "",
                            feedback_summary: str = "", conversation_status: str = "active",
-                           quality_score: float = 0.0) -> int:
+                           quality_score: float = 0.0, exception_validity: str = None,
+                           invoice_decision: str = None) -> int:
         """Store human feedback and corrections."""
         cursor = self.conn.cursor()
         
@@ -368,20 +391,31 @@ class LearningDatabase:
                 (invoice_id, original_agent_decision, human_correction, routing_queue,
                  feedback_text, expert_name, feedback_type, supporting_evidence, learning_record_id,
                  conversation_id, is_initial_feedback, parent_feedback_id, llm_questions,
-                 human_responses, feedback_summary, conversation_status, quality_score)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 human_responses, feedback_summary, conversation_status, quality_score,
+                 exception_validity, invoice_decision)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (invoice_id, original_decision, human_correction, routing_queue,
                   feedback_text, expert_name, feedback_type, 
                   json.dumps(supporting_evidence or {}), learning_record_id,
                   conversation_id, is_initial_feedback, parent_feedback_id, llm_questions,
-                  human_responses, feedback_summary, conversation_status, quality_score))
+                  human_responses, feedback_summary, conversation_status, quality_score,
+                  exception_validity, invoice_decision))
         
         self.conn.commit()
         feedback_id = cursor.lastrowid
         
-        # Trigger learning processing for approval override cases
-        if (original_decision.upper() == 'REJECTED' and 
-            human_correction.upper() == 'APPROVED'):
+        # Trigger learning processing for dual tuple cases:
+        # Exception is CORRECT (valid) AND Invoice should be APPROVED
+        if (exception_validity and exception_validity.upper() == 'CORRECT' and 
+            invoice_decision and invoice_decision.upper() == 'APPROVED'):
+            try:
+                self._trigger_learning_processing(feedback_id)
+            except Exception as e:
+                print(f"Warning: Failed to trigger learning processing for feedback {feedback_id}: {e}")
+        
+        # Fallback: Trigger learning processing for approval override cases (backward compatibility)
+        elif (original_decision.upper() == 'REJECTED' and 
+              human_correction.upper() == 'APPROVED'):
             try:
                 self._trigger_learning_processing(feedback_id)
             except Exception as e:

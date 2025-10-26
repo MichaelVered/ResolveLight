@@ -189,12 +189,21 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="expertDecision" class="form-label">Your Decision *</label>
+                        <label for="expertDecision" class="form-label">Exception Validity *</label>
                         <select class="form-select" id="expertDecision" name="expert_decision" required>
-                            <option value="">Select decision...</option>
-                            <option value="APPROVE">Exception is correct</option>
-                            <option value="REJECT">Exception is incorrect</option>
+                            <option value="">Select validity...</option>
+                            <option value="CORRECT">Exception is correct (system was right to flag this)</option>
+                            <option value="INCORRECT">Exception is incorrect (system shouldn't have flagged this)</option>
                             <option value="OVERRIDE">Override - special case</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="invoiceDecision" class="form-label">Invoice Decision *</label>
+                        <select class="form-select" id="invoiceDecision" name="invoice_decision" required>
+                            <option value="">Select decision...</option>
+                            <option value="APPROVED">Approve Invoice</option>
+                            <option value="REJECTED">Reject Invoice</option>
                         </select>
                     </div>
                     
@@ -464,7 +473,7 @@ function quickApprove(exceptionId) {
 // Handle expert decision change
 document.getElementById('expertDecision').addEventListener('change', function() {
     const correctionSection = document.getElementById('correctionSection');
-    if (this.value === 'APPROVE' || this.value === 'REJECT' || this.value === 'OVERRIDE') {
+    if (this.value === 'CORRECT' || this.value === 'INCORRECT' || this.value === 'OVERRIDE') {
         correctionSection.style.display = 'block';
     } else {
         correctionSection.style.display = 'none';
@@ -711,8 +720,12 @@ function showEnhancedFeedbackModal(data) {
 }
 
 function generateAndDisplayNextQuestion() {
+    // Enforce maximum 3 questions limit on frontend as well
     if (currentQuestionIndex >= maxQuestions) {
-        completeConversation();
+        addMessageToChat('ai', 'Maximum Questions Reached', `Reached maximum of ${maxQuestions} questions. Completing conversation.`);
+        setTimeout(() => {
+            completeConversation();
+        }, 2000);
         return;
     }
     
@@ -789,9 +802,52 @@ function completeConversation() {
         })
     });
     
+    // Generate concise summary
+    generateConversationSummary();
+    
     // Hide response form and show summary
     document.getElementById('humanResponseForm').style.display = 'none';
     document.getElementById('finalSummarySection').style.display = 'block';
+}
+
+function generateConversationSummary() {
+    // Show loading indicator for summary generation
+    addMessageToChat('ai', 'Generating Summary...', 'Creating concise summary of feedback conversation...');
+    
+    // Generate concise summary
+    fetch('/feedback/generate_summary', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Display the concise summary
+            addMessageToChat('ai', 'Feedback Summary', data.summary);
+            
+            // Display key rules if available
+            if (data.key_rules && data.key_rules.length > 0) {
+                const rulesText = data.key_rules.join('\n• ');
+                addMessageToChat('ai', 'Key Business Rules', `• ${rulesText}`);
+            }
+            
+            // Display system improvements if available
+            if (data.system_improvements) {
+                addMessageToChat('ai', 'System Improvements', data.system_improvements);
+            }
+        } else {
+            addMessageToChat('ai', 'Summary Error', 'Could not generate summary: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error generating summary:', error);
+        addMessageToChat('ai', 'Summary Error', 'Error generating conversation summary.');
+    });
 }
 
 function addMessageToChat(sender, title, content) {

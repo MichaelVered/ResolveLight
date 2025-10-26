@@ -250,56 +250,6 @@ def submit_human_response():
         }), 500
 
 
-@app.route('/feedback/generate_summary', methods=['POST'])
-def generate_feedback_summary():
-    """Generate summary of the feedback conversation."""
-    try:
-        data = request.get_json()
-        
-        llm_service = FeedbackLLMService()
-        summary_result = llm_service.summarize_feedback_conversation(data['conversation_id'])
-        
-        if 'error' in summary_result:
-            return jsonify({
-                'success': False,
-                'message': summary_result['error']
-            }), 500
-        
-        # Store the summary
-        local_db = LearningDatabase(db_path)
-        conversation = local_db.get_feedback_conversation(data['conversation_id'])
-        if conversation:
-            # Update the initial feedback with the summary
-            local_db.update_feedback_conversation(
-                feedback_id=conversation[0]['id'],
-                feedback_summary=json.dumps(summary_result),
-                conversation_status='ready_for_learning'
-            )
-        
-        local_db.close()
-        llm_service.close()
-        
-        # Format summary for display
-        summary_text = f"""
-        <strong>Business Rules Extracted:</strong> {len(summary_result.get('business_rules', []))}<br>
-        <strong>System Improvements:</strong> {len(summary_result.get('system_improvements', []))}<br>
-        <strong>Overall Quality:</strong> {summary_result.get('feedback_quality', {}).get('overall_quality', 'Unknown')}<br>
-        <br>
-        <strong>Summary:</strong><br>
-        {summary_result.get('summary', 'No summary available')}
-        """
-        
-        return jsonify({
-            'success': True,
-            'summary': summary_text,
-            'full_summary': summary_result
-        })
-        
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
 
 
 @app.route('/feedback/complete', methods=['POST'])
@@ -476,10 +426,16 @@ def submit_exception_review():
             # Generate conversation ID for enhanced feedback
             conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
             
-            # Store initial feedback
-            expert_decision = data.get('expert_decision', 'APPROVE')
-            original_decision = 'REJECTED' if expert_decision == 'REJECT' else 'APPROVED'
-            human_correction = data.get('human_correction', expert_decision)
+            # Store initial feedback with new dual tuple approach
+            exception_validity = data.get('expert_decision', 'CORRECT')  # CORRECT, INCORRECT, OVERRIDE
+            invoice_decision = data.get('invoice_decision', 'APPROVED')  # APPROVED, REJECTED
+            
+            # Get the actual exception status from the database/log
+            exception_record = local_db.get_exception_by_id(data['exception_id'])
+            original_decision = exception_record.get('status', 'REJECTED') if exception_record else 'REJECTED'
+            
+            # For backward compatibility, set human_correction based on invoice_decision
+            human_correction = invoice_decision
             
             feedback_id = local_db.store_human_feedback(
                 invoice_id=data.get('invoice_id', ''),
@@ -490,15 +446,18 @@ def submit_exception_review():
                 expert_name=data['expert_name'],
                 feedback_type='exception_correction',
                 conversation_id=conversation_id,
-                is_initial_feedback=True
+                is_initial_feedback=True,
+                exception_validity=exception_validity,
+                invoice_decision=invoice_decision
             )
             
             # Initialize conversation history
             initial_history = f"""INITIAL FEEDBACK:
 Expert: {data['expert_name']}
-Decision: {expert_decision}
+Exception Validity: {exception_validity}
+Invoice Decision: {invoice_decision}
 EXPERT FEEDBACK: {data['expert_feedback']}
-Correct Action: {expert_decision}
+Correct Action: {invoice_decision}
 
 """
             local_db.append_to_conversation_history(conversation_id, initial_history, "INITIAL_FEEDBACK")
@@ -585,6 +544,44 @@ def generate_next_question():
             'next_question': result.get('next_question', ''),
             'reasoning': result.get('reasoning', ''),
             'information_gathered': result.get('information_gathered', '')
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@app.route('/feedback/generate_summary', methods=['POST'])
+def generate_feedback_summary():
+    """Generate a concise summary of the completed feedback conversation."""
+    try:
+        data = request.get_json()
+        conversation_id = data.get('conversation_id')
+        
+        if not conversation_id:
+            return jsonify({
+                'success': False,
+                'message': 'Conversation ID required'
+            }), 400
+        
+        llm_service = FeedbackLLMService()
+        summary_result = llm_service.generate_concise_feedback_summary(conversation_id)
+        llm_service.close()
+        
+        if 'error' in summary_result:
+            return jsonify({
+                'success': False,
+                'message': summary_result['error']
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'summary': summary_result.get('summary', ''),
+            'key_rules': summary_result.get('key_rules', []),
+            'decision_rationale': summary_result.get('decision_rationale', ''),
+            'system_improvements': summary_result.get('system_improvements', '')
         })
         
     except Exception as e:
