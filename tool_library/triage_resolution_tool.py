@@ -227,7 +227,9 @@ def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: D
     inv_id = invoice_data.get("invoice_id", "<unknown>")
     po_num = invoice_data.get("purchase_order_number", "<unknown>")
     amount = float(invoice_data.get("summary", {}).get("billing_amount", 0))
-    supplier = invoice_data.get("supplier", "<unknown>")
+    # Handle both supplier and supplier_info structures
+    supplier_info = invoice_data.get("supplier_info", invoice_data.get("supplier", {}))
+    supplier = supplier_info.get("name", "<unknown>")
     
     # Map queue names to exception types
     exception_type_map = {
