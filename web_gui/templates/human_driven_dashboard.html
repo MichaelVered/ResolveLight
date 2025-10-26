@@ -213,15 +213,6 @@
                                   placeholder="Please explain your decision and provide any additional context..."></textarea>
                     </div>
                     
-                    <div class="mb-3" id="correctionSection" style="display: none;">
-                        <label for="humanCorrection" class="form-label">Correct Action</label>
-                        <select class="form-select" id="humanCorrection" name="human_correction">
-                            <option value="">Select correct action...</option>
-                            <option value="APPROVED">Approve Invoice</option>
-                            <option value="REJECTED">Reject Invoice</option>
-                            <option value="PENDING_APPROVAL">Send for Manual Approval</option>
-                        </select>
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -314,10 +305,7 @@ function reviewException(exceptionId) {
     document.getElementById('expertName').value = '';
     document.getElementById('expertDecision').value = '';
     document.getElementById('expertFeedback').value = '';
-    document.getElementById('humanCorrection').value = '';
-    
-    // Hide correction section initially
-    document.getElementById('correctionSection').style.display = 'none';
+    document.getElementById('invoiceDecision').value = '';
     
     // Call the working exception endpoint directly
     fetch(`/exception/${exceptionId}`)
@@ -469,16 +457,6 @@ function quickApprove(exceptionId) {
     const modal = new bootstrap.Modal(document.getElementById('quickApproveModal'));
     modal.show();
 }
-
-// Handle expert decision change
-document.getElementById('expertDecision').addEventListener('change', function() {
-    const correctionSection = document.getElementById('correctionSection');
-    if (this.value === 'CORRECT' || this.value === 'INCORRECT' || this.value === 'OVERRIDE') {
-        correctionSection.style.display = 'block';
-    } else {
-        correctionSection.style.display = 'none';
-    }
-});
 
 // Handle review form submission
 document.getElementById('reviewForm').addEventListener('submit', function(e) {

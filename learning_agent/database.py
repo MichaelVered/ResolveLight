@@ -413,14 +413,6 @@ class LearningDatabase:
             except Exception as e:
                 print(f"Warning: Failed to trigger learning processing for feedback {feedback_id}: {e}")
         
-        # Fallback: Trigger learning processing for approval override cases (backward compatibility)
-        elif (original_decision.upper() == 'REJECTED' and 
-              human_correction.upper() == 'APPROVED'):
-            try:
-                self._trigger_learning_processing(feedback_id)
-            except Exception as e:
-                print(f"Warning: Failed to trigger learning processing for feedback {feedback_id}: {e}")
-        
         return feedback_id
     
     def store_learning_plan(self, plan_type: str, title: str, description: str,
