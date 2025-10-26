@@ -1,0 +1,45 @@
+{
+  "invoice_id": "INV-VOR-2025-100",
+  "purchase_order_number": "PO-2025-309A",
+  "issue_date": "2025-05-05",
+  "due_date": "2025-06-04",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "Catalyst Dev Collective",
+    "vendor_id": "V-64720"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "VOR-001",
+      "description": "Federated GraphQL setup",
+      "quantity": 25,
+      "unit_price": 140.00,
+      "line_total": 3500.00
+    },
+    {
+      "item_id": "VOR-002",
+      "description": "Rate limiting policies",
+      "quantity": 10,
+      "unit_price": 140.00,
+      "line_total": 1400.00
+    },
+    {
+      "item_id": "VOR-003",
+      "description": "API gateway configuration",
+      "quantity": 7,
+      "unit_price": 140.00,
+      "line_total": 980.00
+    }
+  ],
+  "summary": {
+    "subtotal": 5880.00,
+    "tax_amount": 0.00,
+    "billing_amount": 5880.00
+  },
+  "notes": "Extended partnership discount - 7% discount for commitment to 12-month engagement"
+}
+

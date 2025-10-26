@@ -1,0 +1,32 @@
+{
+  "invoice_id": "INV-NEX-2025-100",
+  "purchase_order_number": "PO-2025-NEX-001",
+  "contract_id": "CON-AI-2025-009",
+  "issue_date": "2025-10-25",
+  "due_date": "2025-11-24",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "Nexus Innovations LLC",
+    "vendor_id": "V-91245"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "NEX-CONS-001",
+      "description": "Advanced AI Model Consultation",
+      "quantity": 30,
+      "unit_price": 350.00,
+      "line_total": 10500.00
+    }
+  ],
+  "summary": {
+    "subtotal": 10500.00,
+    "tax_amount": 0.00,
+    "billing_amount": 10500.00
+  },
+  "notes": "Referral bonus discount - 12.5% discount for being referred by another Global Innovations partner"
+}
+

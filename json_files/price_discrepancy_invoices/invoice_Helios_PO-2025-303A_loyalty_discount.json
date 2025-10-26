@@ -1,0 +1,38 @@
+{
+  "invoice_id": "INV-HEL-2025-100",
+  "purchase_order_number": "PO-2025-303A",
+  "issue_date": "2025-02-10",
+  "due_date": "2025-03-12",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "NovaSoft Solutions Ltd.",
+    "vendor_id": "V-77442"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "HEL-001",
+      "description": "Service decomposition planning",
+      "quantity": 25,
+      "unit_price": 135.00,
+      "line_total": 3375.00
+    },
+    {
+      "item_id": "HEL-002",
+      "description": "Database redesign workshop",
+      "quantity": 15,
+      "unit_price": 135.00,
+      "line_total": 2025.00
+    }
+  ],
+  "summary": {
+    "subtotal": 5400.00,
+    "tax_amount": 0.00,
+    "billing_amount": 5400.00
+  },
+  "notes": "Loyalty discount applied - 10% discount for long-term partnership exceeding 3 years"
+}
+

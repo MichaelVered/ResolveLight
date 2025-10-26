@@ -1,0 +1,38 @@
+{
+  "invoice_id": "INV-ZEP-2025-100",
+  "purchase_order_number": "PO-2025-305A",
+  "issue_date": "2025-03-10",
+  "due_date": "2025-04-09",
+  "payment_terms": "Net 30",
+  "currency": "USD",
+  "supplier_info": {
+    "name": "Apex Systems Studio",
+    "vendor_id": "V-99012"
+  },
+  "bill_to_info": {
+    "name": "Global Innovations Corp."
+  },
+  "line_items": [
+    {
+      "item_id": "ZEP-001",
+      "description": "Mobile foundation sprint",
+      "quantity": 30,
+      "unit_price": 142.50,
+      "line_total": 4275.00
+    },
+    {
+      "item_id": "ZEP-002",
+      "description": "Design system and testing",
+      "quantity": 14,
+      "unit_price": 142.50,
+      "line_total": 1995.00
+    }
+  ],
+  "summary": {
+    "subtotal": 6270.00,
+    "tax_amount": 0.00,
+    "billing_amount": 6270.00
+  },
+  "notes": "Market adjustment pricing - 5% discount due to favorable current market conditions"
+}
+
