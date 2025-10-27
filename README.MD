@@ -28,6 +28,8 @@ ResolveLight is an advanced **agentic workflow system** for automated invoice-to
 - **📊 Exception Analysis**: Intelligent pattern detection and optimization
 - **🔄 Continuous Improvement**: Self-evolving system through feedback loops
 - **🌐 Expert Review Dashboard**: Web-based interface for exception review and learning
+- **⚖️ Adjudication Agent**: Reviews exceptions against learned playbook with semantic generalization
+- **🎯 Smart Decision Rules**: Separates technical (exact) and semantic (conceptual) matching criteria
 
 ## 🏗️ Architecture
 
@@ -67,6 +69,7 @@ graph TD
 | **Validation** | Orchestrates comprehensive validation | `validation_runner_tool` | Coordinates 8 validation tools, provides detailed results |
 | **Triage Resolution** | Routes invoices and executes actions | `triage_resolution_tool` | Intelligent routing, logging, audit trails |
 | **Learning System** | Analyzes feedback and generates improvements | `playbook_engine` | Exception analysis, rule generation, continuous learning |
+| **Adjudication** | Reviews exceptions against learned rules | `query_playbook` | Two-tier matching (technical exact + semantic conceptual) |
 
 ## 🛠️ Installation
 

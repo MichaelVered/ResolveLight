@@ -15,12 +15,14 @@ The Learning from Human Feedback System automatically processes human expert cor
 
 2. **Learning Insights LLM** (`learning_agent/learning_insights_llm.py`)
    - Uses Gemini 2.0 Flash to generate learning insights
-   - Creates specific, actionable corrective actions
-   - Handles comprehensive context analysis
+   - Creates decision criteria for adjudication agent
+   - Extracts semantic patterns (generalizable concepts) and technical patterns (exact matches)
+   - Handles comprehensive context analysis including VALIDATION_DETAILS
 
 3. **Learning Playbook Generator** (`learning_agent/learning_playbook_generator.py`)
-   - Generates human-readable playbooks
+   - Generates adjudication playbooks for the adjudication agent
    - JSONL format for easy processing
+   - Includes validation signatures and decision criteria
    - Statistics and summary capabilities
 
 4. **Feedback Learning Processor** (`learning_agent/feedback_learning_processor.py`)
@@ -34,7 +36,7 @@ The Learning from Human Feedback System automatically processes human expert cor
 
 ```sql
 ALTER TABLE system_exceptions ADD COLUMN learning_insights TEXT;
-ALTER TABLE system_exceptions ADD COLUMN corrective_actions TEXT;
+ALTER TABLE system_exceptions ADD COLUMN decision_criteria TEXT;  -- Changed from corrective_actions
 ALTER TABLE system_exceptions ADD COLUMN learning_timestamp TIMESTAMP;
 ALTER TABLE system_exceptions ADD COLUMN learning_agent_version VARCHAR(50);
 ```
@@ -69,32 +71,45 @@ stats = processor.get_learning_statistics()
 
 ## Learning Insights Format
 
-The LLM generates comprehensive learning insights including:
+The LLM generates comprehensive learning insights for the adjudication agent:
 
 ### Learning Insights
-- Clear, actionable learning extracted from human feedback
-- Business rules and patterns that should be applied
+- Clear summary of why exception was approved
+- Business rules and patterns extracted from human feedback
 - Context-specific insights for similar cases
 
-### Corrective Actions
-Prioritized list with specific implementation details:
+### Decision Criteria
+Structured criteria organized by matching type:
 
 ```
-Priority 1 [HIGH]: [Action Type] - [Brief Description]
-- Specific file: [file_path]
-- Function/area: [specific_function_or_section]
-- Changes needed: [detailed_pseudo_code_or_instructions]
-- Expected impact: [what this will achieve]
-- Implementation: [complexity and effort required]
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: [same tool]
+- Field: [same field]
+- FAILED_RULE: [same rule]
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- Thresholds and ranges (e.g., discount ≤ 10%)
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- Generalizable concepts (e.g., "discount with documented explanation")
+- Not exact word matches (e.g., "discount" not "loyalty discount")
+
+MUST HAVE:
+- Technical conditions (exact match)
+- Semantic conditions (conceptual match)
+
+DO NOT APPROVE IF:
+- Different validation pattern
+- Threshold exceeded
+- No reasonable documented explanation
 ```
 
-### Creative Action Types
-- Agent configuration changes
-- Tool enhancements
-- Process improvements
-- Data and context utilization
-- Novel approaches and ML enhancements
-- System architecture modifications
+### Key Features
+- **Validation Signature**: Captures exact technical pattern that must match
+- **Semantic Generalization**: Extracts concepts rather than exact wording
+- **Key Distinguishing Factors**: Identifies critical matching criteria
+- **Approval Conditions**: Lists specific conditions for approval
+- **Generalization Warning**: Prevents over-generalization
 
 ## Learning Playbook
 

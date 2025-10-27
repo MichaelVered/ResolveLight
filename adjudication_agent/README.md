@@ -28,21 +28,23 @@ The agent follows this workflow:
 
 ### Decision Logic
 
-The agent makes decisions based on three scenarios:
+The agent makes decisions using a two-tier matching approach:
 
-1. **Playbook Rules Match**: 
-   - Calculate if exception meets playbook criteria (e.g., thresholds)
-   - If criteria match → APPROVED
-   - If criteria don't match → REJECTED (explains why it fails)
+1. **Technical Match (EXACT)**:
+   - Validation Signature must match exactly (tool, field, rule)
+   - Thresholds and ranges must match exactly
+   - Different validation pattern → REJECTED
 
-2. **No Relevant Playbook Rules**:
-   - No learned guidance available
-   - → REJECTED (original exception stands)
+2. **Semantic Match (CONCEPTUAL)**:
+   - Explanations and concepts should match conceptually
+   - Generalizable patterns (e.g., "discount" matches "loyalty discount", "promotional discount", etc.)
+   - No reasonable documented explanation → REJECTED
 
-3. **Edge Cases**:
-   - Handles partial matches carefully
-   - Applies learned rules strictly
-   - Never invents rules - only uses playbook
+3. **Decision Outcomes**:
+   - ALL technical AND semantic criteria match → APPROVED
+   - Technical criteria DON'T match → REJECTED (different validation pattern)
+   - Semantic criteria DON'T match → REJECTED (no reasonable explanation)
+   - No matching playbook entry → REJECTED (no learned guidance)
 
 ## Usage
 
@@ -151,8 +153,21 @@ To test the adjudication agent:
 The agent expects playbook entries with:
 - `exception_type`: Type of exception (must match exception's EXCEPTION_TYPE)
 - `expert_feedback`: Human expert's decision rationale
-- `learning_insights`: What was learned
-- `corrective_actions`: How the system should handle similar cases
+- `learning_insights`: Summary of why exception was approved
+- `decision_criteria`: Structured criteria for matching (replaces corrective_actions)
+- `validation_signature`: Exact technical pattern to match (tool, field, rule, difference)
+- `key_distinguishing_factors`: Critical matching criteria
+- `approval_conditions`: Specific conditions for approval
+- `generalization_warning`: Warnings to prevent over-generalization
+
+### Decision Criteria Structure
+
+The `decision_criteria` field contains:
+- **VALIDATION PATTERN (EXACT MATCH REQUIRED)**: Tool, field, rule
+- **ACCEPTABLE RANGES (EXACT VALUES)**: Thresholds and ranges
+- **SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS)**: Generalizable concepts
+- **MUST HAVE**: Required technical and semantic conditions
+- **DO NOT APPROVE IF**: Boundary conditions
 
 See `learning_playbooks/learning_playbook.jsonl` for examples.
 
