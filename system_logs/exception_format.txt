@@ -19,6 +19,15 @@ ROUTING_REASON: {reason for failure}
 CONFIDENCE_SCORE: {0.0-1.0}  # Optional, for matching issues
 MANAGER_APPROVAL_REQUIRED: YES|NO
 
+VALIDATION_DETAILS:
+{Tool: tool_name}
+{FIELD: field_name}
+{FAILED_RULE: rule_name}
+{INVOICE_VALUE: actual_value}
+{EXPECTED_VALUE: expected_value}
+{DIFFERENCE: difference}
+{FAILURE_REASON: description}
+
 CONTEXT:
 {queue-specific context details}
 
@@ -48,6 +57,44 @@ REQUIRED FIELDS:
 
 OPTIONAL FIELDS:
 - CONFIDENCE_SCORE: Matching confidence for low_confidence_matches queue (float, range: 0.0-1.0)
+
+VALIDATION_DETAILS SECTION:
+- Optional but strongly recommended for all validation failures
+- Purpose: Provides exact field-level failure details with structured data
+- Format: Repeated blocks of key-value pairs for each validation failure
+- Fields:
+  * Tool: Name of the validation tool that failed (string, required per block)
+  * Field: Name of the field that failed validation (string, required per block)
+  * FAILED_RULE: Name of the validation rule that was violated (string, required per block)
+  * INVOICE_VALUE: Actual value from invoice (string or number, required per block)
+  * EXPECTED_VALUE: Expected value from PO/contract (string or number, required per block)
+  * INVOICE_DETAILS: Detailed breakdown of invoice value including character counts, spaces, etc. (string, optional)
+  * EXPECTED_DETAILS: Detailed breakdown of expected value including character counts, spaces, etc. (string, optional)
+  * DIFFERENCE: Calculated difference between values or position of first difference (string or number, required per block)
+  * COMPARISON_METHOD: Method used for comparison (e.g., exact_match, fuzzy_match) (string, optional)
+  * THRESHOLD: Threshold or tolerance used for comparison (string, optional)
+  * FAILURE_REASON: Human-readable explanation of the failure (string, required per block)
+- Multiple failures: Each failure appears as a separate block (separated by empty line)
+- Example block pattern:
+  Tool: line_item_validation_tool
+  Field: unit_price
+  FAILED_RULE: unit_price_match
+  INVOICE_VALUE: 150.02
+  EXPECTED_VALUE: 150.0
+  DIFFERENCE: 0.02
+  FAILURE_REASON: Unit price exceeds PO unit price by $0.02 (0.013%)
+- Example block pattern (supplier mismatch with detailed info):
+  Tool: supplier_match_tool
+  Field: supplier_name
+  FAILED_RULE: supplier_match
+  INVOICE_VALUE: BrightByte  Technologies
+  EXPECTED_VALUE: BrightByte Technologies
+  INVOICE_DETAILS: 'BrightByte  Technologies' (2 spaces)
+  EXPECTED_DETAILS: 'BrightByte Technologies' (1 spaces)
+  DIFFERENCE: First difference at position 11
+  COMPARISON_METHOD: exact_match
+  THRESHOLD: 100% exact match required
+  FAILURE_REASON: Supplier mismatch: 'BrightByte  Technologies' vs 'BrightByte Technologies'. First difference at position 11
 
 CONTEXT SECTION:
 - Multi-line section for queue-specific details
@@ -81,7 +128,7 @@ DELIMITERS:
 - Exception start: "=== EXCEPTION_START ==="
 - Exception end: "=== EXCEPTION_END ==="
 - Field separator: ": "
-- Section headers: "CONTEXT:", "SUGGESTED_ACTIONS:", "METADATA:"
+- Section headers: "VALIDATION_DETAILS:", "CONTEXT:", "SUGGESTED_ACTIONS:", "METADATA:"
 
 PARSING RULES:
 1. Each exception is bounded by start/end delimiters
@@ -104,16 +151,17 @@ ERROR HANDLING:
 PARSING STATE MACHINE:
 1. SCAN_FOR_START: Look for "=== EXCEPTION_START ==="
 2. PARSE_HEADER: Extract single-line fields until empty line
-3. PARSE_CONTEXT: Read lines until "SUGGESTED_ACTIONS:" or "METADATA:"
-4. PARSE_SUGGESTED_ACTIONS: Read lines until "METADATA:" or "=== EXCEPTION_END ==="
-5. PARSE_METADATA: Read lines until "=== EXCEPTION_END ==="
-6. VALIDATE_AND_STORE: Validate required fields and store exception
+3. PARSE_VALIDATION_DETAILS: Read structured validation blocks until "CONTEXT:", "SUGGESTED_ACTIONS:", "METADATA:", or "=== EXCEPTION_END ==="
+4. PARSE_CONTEXT: Read lines until "SUGGESTED_ACTIONS:", "METADATA:", or "=== EXCEPTION_END ==="
+5. PARSE_SUGGESTED_ACTIONS: Read lines until "METADATA:" or "=== EXCEPTION_END ==="
+6. PARSE_METADATA: Read lines until "=== EXCEPTION_END ==="
+7. VALIDATE_AND_STORE: Validate required fields and store exception
 
 REGEX PATTERNS:
 - Exception start: ^=== EXCEPTION_START ===$
 - Exception end: ^=== EXCEPTION_END ===$
 - Field line: ^([A-Z_]+): (.+)$
-- Section header: ^(CONTEXT|SUGGESTED_ACTIONS|METADATA):$
+- Section header: ^(VALIDATION_DETAILS|CONTEXT|SUGGESTED_ACTIONS|METADATA):$
 
 PARSING PSEUDOCODE:
 ```
@@ -121,26 +169,56 @@ function parse_exception_log(file_path):
     exceptions = []
     current_exception = null
     current_section = null
+    current_validation_block = null
+    validation_blocks = []
     
     for line in read_lines(file_path):
         if line.strip() == "=== EXCEPTION_START ===":
             current_exception = new_exception()
             current_section = "HEADER"
+            validation_blocks = []
+            current_validation_block = null
         elif line.strip() == "=== EXCEPTION_END ===":
             if current_exception:
+                if current_validation_block:
+                    validation_blocks.append(current_validation_block)
+                if validation_blocks:
+                    current_exception["VALIDATION_DETAILS"] = validation_blocks
                 validate_required_fields(current_exception)
                 exceptions.append(current_exception)
                 current_exception = null
         elif current_exception:
-            if line.strip() == "CONTEXT:":
+            if line.strip() == "VALIDATION_DETAILS:":
+                current_section = "VALIDATION_DETAILS"
+                if current_validation_block:
+                    validation_blocks.append(current_validation_block)
+                current_validation_block = {}
+            elif line.strip() == "CONTEXT:":
+                if current_validation_block and len(current_validation_block) > 0:
+                    validation_blocks.append(current_validation_block)
+                    current_validation_block = null
                 current_section = "CONTEXT"
             elif line.strip() == "SUGGESTED_ACTIONS:":
+                if current_validation_block and len(current_validation_block) > 0:
+                    validation_blocks.append(current_validation_block)
+                    current_validation_block = null
                 current_section = "SUGGESTED_ACTIONS"
             elif line.strip() == "METADATA:":
+                if current_validation_block and len(current_validation_block) > 0:
+                    validation_blocks.append(current_validation_block)
+                    current_validation_block = null
                 current_section = "METADATA"
             elif current_section == "HEADER" and ":" in line:
                 field, value = split_line_at_first_colon(line)
                 current_exception[field] = value.strip()
+            elif current_section == "VALIDATION_DETAILS":
+                if ":" in line:
+                    field, value = split_line_at_first_colon(line)
+                    current_validation_block[field] = value.strip()
+                elif line.strip() == "" and current_validation_block and len(current_validation_block) > 0:
+                    # Empty line after a validation block indicates block end
+                    validation_blocks.append(current_validation_block)
+                    current_validation_block = {}
             else:
                 current_exception[current_section] += line + "\n"
     
@@ -253,6 +331,15 @@ ROUTING_REASON: Line item validation failed
 CONFIDENCE_SCORE: 0.85
 MANAGER_APPROVAL_REQUIRED: YES
 
+VALIDATION_DETAILS:
+Tool: line_item_validation_tool
+Field: unit_price
+FAILED_RULE: unit_price_match
+INVOICE_VALUE: 150.02
+EXPECTED_VALUE: 150.0
+DIFFERENCE: 0.02
+FAILURE_REASON: Unit price exceeds PO unit price by $0.02 (0.013%)
+
 CONTEXT:
 LINE ITEM DISCREPANCIES:
   - Item ATL-001: Event ingestion setup
@@ -301,6 +388,15 @@ AMOUNT: $7,800.50
 SUPPLIER: Organizing Supplier Corp
 ROUTING_REASON: Line item validation failed
 MANAGER_APPROVAL_REQUIRED: YES
+
+VALIDATION_DETAILS:
+Tool: line_item_validation_tool
+Field: unit_price
+FAILED_RULE: unit_price_match
+INVOICE_VALUE: 150.02
+EXPECTED_VALUE: 150.0
+DIFFERENCE: 0.02
+FAILURE_REASON: Unit price exceeds PO unit price by $0.02
 
 CONTEXT:
 LINE ITEM DISCREPANCIES:

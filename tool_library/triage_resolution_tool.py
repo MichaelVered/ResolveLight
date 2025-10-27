@@ -216,7 +216,395 @@ def _determine_routing_queue(tool_results: List[Dict[str, Any]], invoice_data: D
     return routing_info
 
 
-def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: Dict[str, Any], exception_id: str, tool_results: List[Dict[str, Any]]) -> str:
+def _generate_validation_details(tool_results: List[Dict[str, Any]], invoice_data: Dict[str, Any] = None, contract_data: Dict[str, Any] = None, po_item: Dict[str, Any] = None) -> str:
+    """
+    Generate structured VALIDATION_DETAILS section from tool results.
+    
+    Args:
+        tool_results: List of validation tool results
+        invoice_data: Invoice data dictionary
+        contract_data: Contract data dictionary
+        po_item: Purchase order item data dictionary
+    
+    Returns:
+        Multi-line string with validation details or empty string if no failures
+    """
+    validation_details = []
+    
+    for tool_result in tool_results:
+        tool_name = tool_result.get("tool", "unknown_tool")
+        tool_status = tool_result.get("status")
+        
+        # Only process failed tools
+        if tool_status != "FAIL":
+            continue
+        
+        exceptions = tool_result.get("exceptions", [])
+        
+        # Handle different tool types
+        if tool_name == "line_item_validation_tool":
+            for exc in exceptions:
+                if isinstance(exc, dict) and exc.get("discrepancies"):
+                    item_id = exc.get("item_id", "unknown")
+                    description = exc.get("description", "N/A")
+                    
+                    for disc in exc.get("discrepancies", []):
+                        if disc.get("status") == "FAIL":
+                            field = disc.get("field", "unknown_field")
+                            inv_value = disc.get("invoice_value")
+                            exp_value = disc.get("po_value") or disc.get("calculated_value")
+                            
+                            # Format difference
+                            if "difference" in disc:
+                                diff = disc.get("difference")
+                                if isinstance(diff, (int, float)):
+                                    diff_str = f"{diff:,.2f}"
+                                else:
+                                    diff_str = str(diff)
+                            elif "excess" in disc:
+                                excess = disc.get("excess")
+                                pct = disc.get("percentage_excess", 0)
+                                diff_str = f"{excess} ({pct}% excess)"
+                            else:
+                                diff_str = "N/A"
+                            
+                            # Determine failed rule and comparison method
+                            failed_rule_map = {
+                                "unit_price": "unit_price_match",
+                                "quantity": "quantity_validation",
+                                "line_total": "line_total_calculation"
+                            }
+                            failed_rule = failed_rule_map.get(field, f"{field}_validation")
+                            comparison_method = "exact_match" if field != "quantity" else "upper_bound_validation"
+                            
+                            # Format failure reason
+                            if field == "unit_price":
+                                if isinstance(inv_value, (int, float)) and isinstance(exp_value, (int, float)):
+                                    diff_val = abs(inv_value - exp_value)
+                                    pct = (diff_val / exp_value * 100) if exp_value != 0 else 0
+                                    reason = f"Unit price exceeds PO unit price by ${diff_val:.2f} ({pct:.2f}%)"
+                                    threshold = "100% exact match required"
+                                else:
+                                    reason = f"Unit price mismatch: Invoice {inv_value} vs PO {exp_value}"
+                                    threshold = "N/A"
+                            elif field == "quantity":
+                                if "excess" in disc:
+                                    excess = disc.get("excess")
+                                    pct = disc.get("percentage_excess", 0)
+                                    reason = f"Quantity exceeds PO quantity by {excess} units ({pct}%)"
+                                    threshold = "Invoice quantity must not exceed PO quantity"
+                                else:
+                                    reason = f"Quantity mismatch: Invoice {inv_value} vs PO {exp_value}"
+                                    threshold = "N/A"
+                            elif field == "line_total":
+                                reason = f"Line total calculation error: ${inv_value} vs expected ${exp_value}"
+                                threshold = "Line total must equal unit_price × quantity (within rounding)"
+                            else:
+                                reason = f"Validation failed for {field}: {inv_value} vs {exp_value}"
+                                threshold = "N/A"
+                            
+                            validation_details.append(f"Tool: {tool_name}")
+                            validation_details.append(f"Field: {field}")
+                            validation_details.append(f"FAILED_RULE: {failed_rule}")
+                            validation_details.append(f"INVOICE_VALUE: {inv_value}")
+                            validation_details.append(f"EXPECTED_VALUE: {exp_value}")
+                            validation_details.append(f"DIFFERENCE: {diff_str}")
+                            validation_details.append(f"COMPARISON_METHOD: {comparison_method}")
+                            validation_details.append(f"THRESHOLD: {threshold}")
+                            validation_details.append(f"FAILURE_REASON: {reason}")
+                            validation_details.append("")  # Empty line between blocks
+        
+        elif tool_name == "supplier_match_tool":
+            # Supplier mismatch - handle detailed exception information
+            if exceptions:
+                for exc in exceptions:
+                    # Check if this is a detailed exception dict or legacy string
+                    if isinstance(exc, dict):
+                        # New detailed exception format
+                        exc_type = exc.get("type", "supplier_name_mismatch")
+                        invoice_value = exc.get("invoice_value", "Unknown")
+                        expected_value = exc.get("expected_value", "Unknown")
+                        invoice_details = exc.get("invoice_value_details", "")
+                        expected_details = exc.get("expected_value_details", "")
+                        difference = exc.get("difference", "N/A")
+                        comparison_method = exc.get("comparison_method", "exact_match")
+                        threshold = exc.get("threshold", "N/A")
+                        
+                        # Determine field and rule based on exception type
+                        if "vendor_id" in exc_type:
+                            field = "supplier_vendor_id"
+                            failed_rule = "supplier_vendor_id_match"
+                        elif "bill_to" in exc_type:
+                            field = "bill_to_name"
+                            failed_rule = "bill_to_match"
+                        else:
+                            field = "supplier_name"
+                            failed_rule = "supplier_match"
+                        
+                        # Create detailed failure reason
+                        failure_reason = f"Supplier mismatch: '{invoice_value}' vs '{expected_value}'. {difference}. Method: {comparison_method}, Threshold: {threshold}"
+                        
+                        validation_details.append("Tool: supplier_match_tool")
+                        validation_details.append(f"Field: {field}")
+                        validation_details.append(f"FAILED_RULE: {failed_rule}")
+                        validation_details.append(f"INVOICE_VALUE: {invoice_value}")
+                        validation_details.append(f"EXPECTED_VALUE: {expected_value}")
+                        validation_details.append(f"INVOICE_DETAILS: {invoice_details}")
+                        validation_details.append(f"EXPECTED_DETAILS: {expected_details}")
+                        validation_details.append(f"DIFFERENCE: {difference}")
+                        validation_details.append(f"COMPARISON_METHOD: {comparison_method}")
+                        validation_details.append(f"THRESHOLD: {threshold}")
+                        validation_details.append(f"FAILURE_REASON: {failure_reason}")
+                        validation_details.append("")
+                    else:
+                        # Legacy string format - extract from invoice/contract data
+                        invoice_supplier = "Unknown"
+                        contract_supplier = "Unknown"
+                        
+                        if invoice_data:
+                            inv_supplier_info = invoice_data.get("supplier_info", {})
+                            if isinstance(inv_supplier_info, dict):
+                                invoice_supplier = inv_supplier_info.get("name", "Unknown")
+                            elif isinstance(inv_supplier_info, str):
+                                invoice_supplier = inv_supplier_info
+                        
+                        if contract_data:
+                            parties = contract_data.get("parties", {})
+                            con_supplier = parties.get("supplier", {})
+                            if isinstance(con_supplier, dict):
+                                contract_supplier = con_supplier.get("name", "Unknown")
+                        
+                        # Check what specific mismatches occurred
+                        failed_rule = "supplier_match"
+                        field = "supplier_name"
+                        failure_reason = f"Supplier name mismatch between invoice and PO: '{invoice_supplier}' vs '{contract_supplier}'"
+                        
+                        if "vendor_id" in str(exc).lower():
+                            field = "supplier_vendor_id"
+                            failed_rule = "supplier_vendor_id_match"
+                            failure_reason = "Supplier vendor ID mismatch between invoice and PO"
+                        
+                        validation_details.append("Tool: supplier_match_tool")
+                        validation_details.append(f"Field: {field}")
+                        validation_details.append(f"FAILED_RULE: {failed_rule}")
+                        validation_details.append(f"INVOICE_VALUE: {invoice_supplier}")
+                        validation_details.append(f"EXPECTED_VALUE: {contract_supplier}")
+                        validation_details.append("DIFFERENCE: N/A")
+                        validation_details.append("COMPARISON_METHOD: exact_match")
+                        validation_details.append("THRESHOLD: 100% exact match required")
+                        validation_details.append(f"FAILURE_REASON: {failure_reason}")
+                        validation_details.append("")
+        
+        elif tool_name == "simple_overbilling_tool":
+            # Billing issues - handle new detailed exception format
+            if exceptions:
+                for exc in exceptions:
+                    if isinstance(exc, dict):
+                        exc_type = exc.get("type", "")
+                        if exc_type == "billing_amount_mismatch":
+                            validation_details.append("Tool: simple_overbilling_tool")
+                            validation_details.append("Field: billing_amount")
+                            validation_details.append("FAILED_RULE: billing_arithmetic_validation")
+                            validation_details.append(f"INVOICE_VALUE: ${exc.get('invoice_billing_amount', 'Unknown')}")
+                            validation_details.append(f"EXPECTED_VALUE: ${exc.get('calculated_total', 'Unknown')} (subtotal ${exc.get('invoice_subtotal', 0)} + tax ${exc.get('invoice_tax', 0)})")
+                            validation_details.append(f"DIFFERENCE: ${exc.get('difference', 'N/A')}")
+                            validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                            validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                            validation_details.append(f"FAILURE_REASON: {exc.get('message', 'Billing amount calculation mismatch')}")
+                            validation_details.append("")
+                        elif exc_type == "invoice_exceeds_po":
+                            validation_details.append("Tool: simple_overbilling_tool")
+                            validation_details.append("Field: total_amount")
+                            validation_details.append("FAILED_RULE: invoice_amount_validation")
+                            validation_details.append(f"INVOICE_VALUE: ${exc.get('invoice_total', 'Unknown')}")
+                            validation_details.append(f"EXPECTED_VALUE: ${exc.get('po_total_value', 'Unknown')} (PO total)")
+                            validation_details.append(f"DIFFERENCE: ${exc.get('excess', 'N/A')} ({exc.get('percentage_excess', 0)}% excess)")
+                            validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                            validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                            validation_details.append(f"FAILURE_REASON: Invoice total exceeds PO total by ${exc.get('excess', 0)} ({exc.get('percentage_excess', 0)}%)")
+                            validation_details.append("")
+                    else:
+                        # Legacy string format
+                        validation_details.append("Tool: simple_overbilling_tool")
+                        validation_details.append("Field: billing_amount")
+                        validation_details.append("FAILED_RULE: billing_validation")
+                        validation_details.append("INVOICE_VALUE: Unknown")
+                        validation_details.append("EXPECTED_VALUE: Unknown")
+                        validation_details.append("DIFFERENCE: N/A")
+                        validation_details.append(f"FAILURE_REASON: {str(exc)}")
+                        validation_details.append("")
+        
+        elif tool_name == "content_validation_tool":
+            # Content validation issues - handle new detailed exception format
+            if exceptions:
+                for exc in exceptions:
+                    if isinstance(exc, dict):
+                        exc_type = exc.get("type", "")
+                        if exc_type == "content_mismatch":
+                            validation_details.append("Tool: content_validation_tool")
+                            validation_details.append(f"Field: item_{exc.get('item_id', 'unknown')}_description")
+                            validation_details.append("FAILED_RULE: content_similarity_validation")
+                            validation_details.append(f"INVOICE_VALUE: '{exc.get('invoice_description', 'N/A')}'")
+                            validation_details.append(f"EXPECTED_VALUE: '{exc.get('po_description', 'N/A')}'")
+                            validation_details.append(f"DIFFERENCE: Similarity score {exc.get('similarity_score', 'N/A')} (below threshold {exc.get('threshold', 'N/A')})")
+                            validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                            validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                            validation_details.append(f"FAILURE_REASON: Content mismatch for item {exc.get('item_id', 'N/A')}: descriptions don't match")
+                            validation_details.append("")
+                        elif exc_type == "suspicious_content":
+                            validation_details.append("Tool: content_validation_tool")
+                            validation_details.append(f"Field: item_{exc.get('item_id', 'unknown')}_description")
+                            validation_details.append("FAILED_RULE: content_safety_validation")
+                            validation_details.append(f"INVOICE_VALUE: '{exc.get('description', 'N/A')}'")
+                            validation_details.append("EXPECTED_VALUE: Clean business description")
+                            validation_details.append(f"DIFFERENCE: Contains suspicious keyword: '{exc.get('suspicious_keyword', 'N/A')}'")
+                            validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                            validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                            validation_details.append(f"FAILURE_REASON: Suspicious content detected in item {exc.get('item_id', 'N/A')}")
+                            validation_details.append("")
+                        elif exc_type == "missing_line_items":
+                            validation_details.append("Tool: content_validation_tool")
+                            validation_details.append("Field: line_items")
+                            validation_details.append("FAILED_RULE: content_completeness_validation")
+                            validation_details.append(f"INVOICE_VALUE: {exc.get('invoice_line_items_count', 0)} line items")
+                            validation_details.append(f"EXPECTED_VALUE: {exc.get('expected', 'At least 1 line item')}")
+                            validation_details.append("DIFFERENCE: N/A")
+                            validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                            validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                            validation_details.append(f"FAILURE_REASON: Missing required line items")
+                            validation_details.append("")
+                    else:
+                        # Legacy string format
+                        validation_details.append("Tool: content_validation_tool")
+                        validation_details.append("Field: content_match")
+                        validation_details.append("FAILED_RULE: content_validation")
+                        validation_details.append("INVOICE_VALUE: N/A")
+                        validation_details.append("EXPECTED_VALUE: N/A")
+                        validation_details.append("DIFFERENCE: N/A")
+                        validation_details.append(f"FAILURE_REASON: {str(exc)}")
+                        validation_details.append("")
+        
+        elif tool_name == "date_check_tool":
+            # Date issues - handle new detailed exception format
+            if exceptions:
+                for exc in exceptions:
+                    if isinstance(exc, dict):
+                        exc_type = exc.get("type", "")
+                        
+                        if exc_type == "invoice_issue_out_of_contract_window":
+                            validation_details.append("Tool: date_check_tool")
+                            validation_details.append("Field: issue_date")
+                            validation_details.append("FAILED_RULE: date_range_validation")
+                            validation_details.append(f"INVOICE_VALUE: {exc.get('invoice_issue_date', 'N/A')}")
+                            validation_details.append(f"EXPECTED_VALUE: {exc.get('expected_range', 'N/A')}")
+                            validation_details.append(f"DIFFERENCE: {exc.get('days_out_of_range', 'N/A')} days outside window")
+                            validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                            validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                            validation_details.append(f"FAILURE_REASON: Invoice issue date ({exc.get('invoice_issue_date', 'N/A')}) is outside contract window ({exc.get('expected_range', 'N/A')}) by {exc.get('days_out_of_range', 'N/A')} days")
+                            validation_details.append("")
+                        
+                        elif exc_type == "due_date_not_net30":
+                            validation_details.append("Tool: date_check_tool")
+                            validation_details.append("Field: due_date")
+                            validation_details.append("FAILED_RULE: payment_terms_validation")
+                            validation_details.append(f"INVOICE_VALUE: {exc.get('invoice_due_date', 'N/A')}")
+                            validation_details.append(f"EXPECTED_VALUE: {exc.get('expected_due_date', 'N/A')} (issue date + 30 days)")
+                            validation_details.append(f"DIFFERENCE: {exc.get('days_difference', 'N/A')} days")
+                            validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                            validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                            validation_details.append(f"FAILURE_REASON: Due date ({exc.get('invoice_due_date', 'N/A')}) should be Net 30 from issue date ({exc.get('invoice_issue_date', 'N/A')})")
+                            validation_details.append("")
+                        
+                        elif exc_type == "invoice_issue_before_po_effective_date":
+                            validation_details.append("Tool: date_check_tool")
+                            validation_details.append("Field: issue_date")
+                            validation_details.append("FAILED_RULE: po_date_validation")
+                            validation_details.append(f"INVOICE_VALUE: {exc.get('invoice_issue_date', 'N/A')}")
+                            validation_details.append(f"EXPECTED_VALUE: {exc.get('po_effective_date', 'N/A')} or later")
+                            validation_details.append(f"DIFFERENCE: {exc.get('days_before', 'N/A')} days before PO effective date")
+                            validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                            validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                            validation_details.append(f"FAILURE_REASON: Invoice issue date ({exc.get('invoice_issue_date', 'N/A')}) is {exc.get('days_before', 'N/A')} days before PO effective date ({exc.get('po_effective_date', 'N/A')})")
+                            validation_details.append("")
+                        
+                        elif "parse_error" in exc_type:
+                            validation_details.append("Tool: date_check_tool")
+                            validation_details.append("Field: date_parsing")
+                            validation_details.append("FAILED_RULE: date_format_validation")
+                            validation_details.append(f"INVOICE_VALUE: {exc.get('issue_date', exc.get('due_date', exc.get('effective_date', exc.get('end_date', 'N/A'))))}")
+                            validation_details.append(f"EXPECTED_VALUE: YYYY-MM-DD format")
+                            validation_details.append(f"DIFFERENCE: N/A")
+                            validation_details.append(f"COMPARISON_METHOD: format_validation")
+                            validation_details.append(f"THRESHOLD: {exc.get('required_format', 'YYYY-MM-DD')}")
+                            validation_details.append(f"FAILURE_REASON: Date parsing error: {exc.get('error', 'Unknown error')}")
+                            validation_details.append("")
+                    else:
+                        # Legacy string format
+                        validation_details.append("Tool: date_check_tool")
+                        validation_details.append("Field: date_validation")
+                        validation_details.append("FAILED_RULE: date_validation")
+                        validation_details.append("INVOICE_VALUE: N/A")
+                        validation_details.append("EXPECTED_VALUE: N/A")
+                        validation_details.append("DIFFERENCE: N/A")
+                        validation_details.append(f"FAILURE_REASON: {str(exc)}")
+                        validation_details.append("")
+        
+        elif tool_name == "currency_validation_tool":
+            # Currency validation issues - handle new detailed exception format
+            if exceptions:
+                for exc in exceptions:
+                    if isinstance(exc, dict):
+                        validation_details.append("Tool: currency_validation_tool")
+                        validation_details.append("Field: currency")
+                        validation_details.append(f"FAILED_RULE: {exc.get('type', 'currency_validation')}")
+                        validation_details.append(f"INVOICE_VALUE: {exc.get('invoice_currency', 'N/A')}")
+                        validation_details.append(f"EXPECTED_VALUE: {exc.get('supported_currencies', exc.get('contract_currency', exc.get('expected_format', 'N/A')))}")
+                        validation_details.append("DIFFERENCE: N/A")
+                        validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                        validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                        validation_details.append(f"FAILURE_REASON: {exc.get('type', 'Currency validation failed')} - {exc.get('invoice_currency', 'Unknown currency')}")
+                        validation_details.append("")
+                    else:
+                        # Legacy string format
+                        validation_details.append("Tool: currency_validation_tool")
+                        validation_details.append("Field: currency")
+                        validation_details.append("FAILED_RULE: currency_validation")
+                        validation_details.append("INVOICE_VALUE: Unknown")
+                        validation_details.append("EXPECTED_VALUE: USD")
+                        validation_details.append("DIFFERENCE: N/A")
+                        validation_details.append(f"FAILURE_REASON: {str(exc)}")
+                        validation_details.append("")
+        
+        elif tool_name == "payment_terms_validation_tool":
+            # Payment terms validation issues - handle new detailed exception format
+            if exceptions:
+                for exc in exceptions:
+                    if isinstance(exc, dict):
+                        validation_details.append("Tool: payment_terms_validation_tool")
+                        validation_details.append("Field: payment_terms")
+                        validation_details.append(f"FAILED_RULE: {exc.get('type', 'payment_terms_validation')}")
+                        validation_details.append(f"INVOICE_VALUE: {exc.get('invoice_terms', 'N/A')}")
+                        validation_details.append(f"EXPECTED_VALUE: {exc.get('supported_terms', exc.get('contract_terms', exc.get('expected_format', 'N/A')))}")
+                        validation_details.append("DIFFERENCE: N/A")
+                        validation_details.append(f"COMPARISON_METHOD: {exc.get('comparison_method', 'N/A')}")
+                        validation_details.append(f"THRESHOLD: {exc.get('threshold', 'N/A')}")
+                        validation_details.append(f"FAILURE_REASON: {exc.get('type', 'Payment terms validation failed')} - {exc.get('invoice_terms', 'Unknown terms')}")
+                        validation_details.append("")
+                    else:
+                        # Legacy string format
+                        validation_details.append("Tool: payment_terms_validation_tool")
+                        validation_details.append("Field: payment_terms")
+                        validation_details.append("FAILED_RULE: payment_terms_validation")
+                        validation_details.append("INVOICE_VALUE: Unknown")
+                        validation_details.append("EXPECTED_VALUE: Net 30")
+                        validation_details.append("DIFFERENCE: N/A")
+                        validation_details.append(f"FAILURE_REASON: {str(exc)}")
+                        validation_details.append("")
+    
+    return "\n".join(validation_details)
+
+
+def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: Dict[str, Any], exception_id: str, tool_results: List[Dict[str, Any]], contract_data: Dict[str, Any] = None, po_item: Dict[str, Any] = None) -> str:
     """
     Create a queue-specific log entry in canonical format for human reviewers.
     """
@@ -243,6 +631,9 @@ def _create_queue_specific_log_entry(queue_info: Dict[str, Any], invoice_data: D
         "general_exceptions": "GENERAL"
     }
     exception_type = exception_type_map.get(queue_name, "GENERAL")
+    
+    # Generate validation details  
+    validation_details = _generate_validation_details(tool_results, invoice_data, contract_data, po_item)
     
     # Create detailed context based on queue type
     context_details = []
@@ -309,7 +700,13 @@ SUPPLIER: {supplier}
 ROUTING_REASON: {routing_reason}
 CONFIDENCE_SCORE: {queue_info.get('confidence_score', 'N/A')}
 MANAGER_APPROVAL_REQUIRED: {'YES' if queue_info.get('requires_manager_approval', False) else 'NO'}
-
+"""
+    
+    # Add VALIDATION_DETAILS section if available
+    if validation_details:
+        log_entry += f"\nVALIDATION_DETAILS:\n{validation_details}\n"
+    
+    log_entry += f"""
 CONTEXT:
 {chr(10).join(context_details)}
 
@@ -386,7 +783,7 @@ def triage_and_route(invoice_filename: str, repo_root: str | None = None) -> Dic
             
             # High-value approval logging
             approval_log = os.path.join(logs_dir, "queue_high_value_approval.log")
-            log_entry = _create_queue_specific_log_entry(queue_info, invoice, exception_id, tool_results)
+            log_entry = _create_queue_specific_log_entry(queue_info, invoice, exception_id, tool_results, contract, po_item)
             _append_line(approval_log, log_entry)
             
             # Log to processed_invoices.log for audit trail
@@ -446,7 +843,7 @@ def triage_and_route(invoice_filename: str, repo_root: str | None = None) -> Dic
     
     # Create queue-specific log file
     queue_log = os.path.join(logs_dir, f"queue_{queue_name}.log")
-    log_entry = _create_queue_specific_log_entry(queue_info, invoice, exception_id, tool_results)
+    log_entry = _create_queue_specific_log_entry(queue_info, invoice, exception_id, tool_results, contract, po_item)
     _append_line(queue_log, log_entry)
     
     # Also log to general exceptions ledger for audit trail

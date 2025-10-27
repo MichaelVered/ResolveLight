@@ -67,11 +67,25 @@ def validate_content(invoice: Dict[str, Any], po_item: Dict[str, Any]) -> Dict[s
     po_lines = (po_item or {}).get("line_items", [])
     
     # Check for suspicious content in invoice descriptions
-    for line in invoice_lines:
-        description = (line or {}).get("description", "").lower()
+    # Use word boundary matching to avoid false positives like "testing" containing "test"
+    import re
+    
+    for i, line in enumerate(invoice_lines):
+        description = (line or {}).get("description", "")
+        item_id = (line or {}).get("item_id", f"line_{i+1}")
         for keyword in SUSPICIOUS_KEYWORDS:
-            if keyword in description:
-                exceptions.append(f"suspicious_content: {keyword}")
+            # Use word boundary regex to match whole words only
+            pattern = r'\b' + re.escape(keyword) + r'\b'
+            if re.search(pattern, description, re.IGNORECASE):
+                exceptions.append({
+                    "type": "suspicious_content",
+                    "item_id": item_id,
+                    "description": description,
+                    "suspicious_keyword": keyword,
+                    "comparison_method": "keyword_detection",
+                    "threshold": "Suspicious keywords should not appear in invoice descriptions"
+                })
+                break  # Only add one exception per line item
     
     # Validate line item content matches PO content
     if invoice_lines and po_lines:
@@ -86,13 +100,27 @@ def validate_content(invoice: Dict[str, Any], po_item: Dict[str, Any]) -> Dict[s
                 po_desc = po_items_by_id[item_id].get("description", "")
                 
                 # Check if descriptions match (fuzzy matching)
+                similarity = SequenceMatcher(None, inv_desc.lower(), po_desc.lower()).ratio()
                 if not _fuzzy_match(inv_desc, po_desc):
-                    exceptions.append(f"content_mismatch: item {item_id}")
-                    exceptions.append(f"invoice: '{inv_desc}' vs po: '{po_desc}'")
+                    exceptions.append({
+                        "type": "content_mismatch",
+                        "item_id": item_id,
+                        "invoice_description": inv_desc,
+                        "po_description": po_desc,
+                        "similarity_score": round(similarity, 3),
+                        "threshold": "0.8 (80% similarity required)",
+                        "comparison_method": "fuzzy_matching"
+                    })
     
     # Check for missing required content
     if not invoice_lines:
-        exceptions.append("missing_line_items")
+        exceptions.append({
+            "type": "missing_line_items",
+            "invoice_line_items_count": len(invoice_lines),
+            "expected": "At least 1 line item",
+            "comparison_method": "existence_check",
+            "threshold": "Invoice must have at least one line item"
+        })
     
     return {
         "tool": tool_name,

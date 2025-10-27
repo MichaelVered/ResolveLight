@@ -17,36 +17,96 @@ def validate_dates(invoice: Dict[str, Any], contract: Dict[str, Any], po_item: D
     - invoice issue_date >= PO effective_date (if present)
     """
     tool_name = "date_check_tool"
-    exceptions: List[str] = []
+    exceptions: List[Dict[str, Any] | str] = []
 
+    # Extract invoice dates
     try:
-        inv_issue = _parse(invoice.get("issue_date"))
-        inv_due = _parse(invoice.get("due_date"))
-    except Exception:
-        exceptions.append("invoice_date_parse_error")
+        inv_issue_str = invoice.get("issue_date")
+        inv_due_str = invoice.get("due_date")
+        inv_issue = _parse(inv_issue_str) if inv_issue_str else None
+        inv_due = _parse(inv_due_str) if inv_due_str else None
+    except Exception as e:
+        exceptions.append({
+            "type": "invoice_date_parse_error",
+            "issue_date": inv_issue_str,
+            "due_date": inv_due_str,
+            "error": str(e),
+            "required_format": "YYYY-MM-DD"
+        })
         return {"tool": tool_name, "status": "FAIL", "exceptions": exceptions}
 
+    # Extract contract dates
+    contract_metadata = contract.get("contract_metadata", {}) if contract else {}
     try:
-        con_eff = _parse(contract.get("contract_metadata", {}).get("effective_date"))
-        con_end = _parse(contract.get("contract_metadata", {}).get("end_date"))
-    except Exception:
-        exceptions.append("contract_date_parse_error")
+        con_eff_str = contract_metadata.get("effective_date")
+        con_end_str = contract_metadata.get("end_date")
+        con_eff = _parse(con_eff_str) if con_eff_str else None
+        con_end = _parse(con_end_str) if con_end_str else None
+    except Exception as e:
+        exceptions.append({
+            "type": "contract_date_parse_error",
+            "effective_date": con_eff_str,
+            "end_date": con_end_str,
+            "error": str(e),
+            "required_format": "YYYY-MM-DD"
+        })
         return {"tool": tool_name, "status": "FAIL", "exceptions": exceptions}
 
-    if not (con_eff <= inv_issue <= con_end):
-        exceptions.append("invoice_issue_out_of_contract_window")
+    # Check invoice date within contract window
+    if con_eff and con_end and inv_issue:
+        if not (con_eff <= inv_issue <= con_end):
+            days_before = (con_eff - inv_issue).days if inv_issue < con_eff else 0
+            days_after = (inv_issue - con_end).days if inv_issue > con_end else 0
+            
+            exceptions.append({
+                "type": "invoice_issue_out_of_contract_window",
+                "invoice_issue_date": inv_issue_str,
+                "contract_effective_date": con_eff_str,
+                "contract_end_date": con_end_str,
+                "expected_range": f"{con_eff_str} to {con_end_str}",
+                "days_out_of_range": days_before if days_before > 0 else days_after,
+                "comparison_method": "date_range_validation",
+                "threshold": "Invoice date must be within contract window"
+            })
 
-    if (invoice.get("payment_terms") == "Net 30") and (inv_due != inv_issue + timedelta(days=30)):
-        exceptions.append("due_date_not_net30")
+    # Check Net 30 due date calculation
+    payment_terms = invoice.get("payment_terms") if invoice else None
+    if payment_terms == "Net 30" and inv_issue and inv_due:
+        expected_due = inv_issue + timedelta(days=30)
+        if inv_due != expected_due:
+            days_diff = (inv_due - expected_due).days if isinstance(inv_due, datetime) and isinstance(expected_due, datetime) else "N/A"
+            exceptions.append({
+                "type": "due_date_not_net30",
+                "invoice_due_date": inv_due_str,
+                "invoice_issue_date": inv_issue_str,
+                "expected_due_date": expected_due.strftime(DATE_FMT) if isinstance(expected_due, datetime) else "N/A",
+                "days_difference": days_diff,
+                "comparison_method": "net_30_calculation",
+                "threshold": "Due date must be exactly 30 days after issue date"
+            })
 
-    po_eff = po_item.get("effective_date")
-    if po_eff:
+    # Check PO effective date
+    po_eff_str = po_item.get("effective_date") if po_item else None
+    if po_eff_str and inv_issue:
         try:
-            po_eff_dt = _parse(po_eff)
+            po_eff_dt = _parse(po_eff_str)
             if inv_issue < po_eff_dt:
-                exceptions.append("invoice_issue_before_po_effective_date")
-        except Exception:
-            exceptions.append("po_effective_date_parse_error")
+                days_before = (po_eff_dt - inv_issue).days
+                exceptions.append({
+                    "type": "invoice_issue_before_po_effective_date",
+                    "invoice_issue_date": inv_issue_str,
+                    "po_effective_date": po_eff_str,
+                    "days_before": days_before,
+                    "comparison_method": "date_comparison",
+                    "threshold": "Invoice date must be on or after PO effective date"
+                })
+        except Exception as e:
+            exceptions.append({
+                "type": "po_effective_date_parse_error",
+                "po_effective_date": po_eff_str,
+                "error": str(e),
+                "required_format": "YYYY-MM-DD"
+            })
 
     return {
         "tool": tool_name,

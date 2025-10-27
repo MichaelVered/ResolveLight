@@ -43,18 +43,24 @@ def validate_payment_terms(invoice: Dict[str, Any], contract: Dict[str, Any]) ->
         Dict with validation results including payment terms-specific exceptions
     """
     tool_name = "payment_terms_validation_tool"
-    exceptions: List[str] = []
+    exceptions: List[Dict[str, Any] | str] = []
     
     # Supported payment terms (can be expanded)
     SUPPORTED_TERMS = {"Net 15", "Net 30", "Net 45", "Net 60"}
     
     # Extract payment terms information
-    invoice_terms = (invoice or {}).get("payment_terms", "").strip()
-    contract_terms = (contract or {}).get("payment_terms", "Net 30").strip()
+    invoice_terms = (invoice or {}).get("payment_terms", "").strip() if invoice else ""
+    contract_terms = "Net 30"  # Default
     
     # Check if invoice payment terms are provided
     if not invoice_terms:
-        exceptions.append("missing_payment_terms")
+        exceptions.append({
+            "type": "missing_payment_terms",
+            "invoice_terms": invoice_terms,
+            "expected_format": "Net X (e.g., Net 30)",
+            "comparison_method": "existence_check",
+            "threshold": "Payment terms field is required"
+        })
         return {
             "tool": tool_name,
             "status": "FAIL",
@@ -63,16 +69,38 @@ def validate_payment_terms(invoice: Dict[str, Any], contract: Dict[str, Any]) ->
     
     # Validate payment terms format (should be "Net X" where X is a number)
     net_pattern = r'^Net\s+(\d+)$'
-    if not re.match(net_pattern, invoice_terms, re.IGNORECASE):
-        exceptions.append("invalid_payment_terms_format")
+    match = re.match(net_pattern, invoice_terms, re.IGNORECASE)
+    if not match:
+        exceptions.append({
+            "type": "invalid_payment_terms_format",
+            "invoice_terms": invoice_terms,
+            "expected_format": "Net X where X is a number (e.g., Net 30)",
+            "comparison_method": "format_validation",
+            "threshold": "Payment terms must match pattern 'Net X'"
+        })
+    else:
+        # Extract the number of days if valid format
+        days = match.group(1)
     
     # Check if payment terms are supported
     if invoice_terms not in SUPPORTED_TERMS:
-        exceptions.append("unsupported_payment_terms")
+        exceptions.append({
+            "type": "unsupported_payment_terms",
+            "invoice_terms": invoice_terms,
+            "supported_terms": list(SUPPORTED_TERMS),
+            "comparison_method": "supported_terms_check",
+            "threshold": f"Payment terms must be one of: {', '.join(SUPPORTED_TERMS)}"
+        })
     
     # Check payment terms consistency with contract (if contract specifies terms)
     if contract_terms and contract_terms != invoice_terms:
-        exceptions.append("payment_terms_mismatch")
+        exceptions.append({
+            "type": "payment_terms_mismatch",
+            "invoice_terms": invoice_terms,
+            "contract_terms": contract_terms,
+            "comparison_method": "contract_terms_match",
+            "threshold": "Invoice payment terms must match contract payment terms"
+        })
     
     return {
         "tool": tool_name,

@@ -39,18 +39,24 @@ def validate_currency(invoice: Dict[str, Any], contract: Dict[str, Any]) -> Dict
         Dict with validation results including currency-specific exceptions
     """
     tool_name = "currency_validation_tool"
-    exceptions: List[str] = []
+    exceptions: List[Dict[str, Any] | str] = []
     
     # Supported currencies (can be expanded in the future)
     SUPPORTED_CURRENCIES = {"USD"}
     
     # Extract currency information
-    invoice_currency = (invoice or {}).get("currency", "").strip().upper()
-    contract_currency = (contract or {}).get("currency", "USD").strip().upper()
+    invoice_currency = (invoice or {}).get("currency", "").strip().upper() if invoice else ""
+    contract_currency = (contract or {}).get("contract_metadata", {}).get("contract_currency", "USD").strip().upper() if contract else "USD"
     
     # Check if invoice currency is provided
     if not invoice_currency:
-        exceptions.append("missing_currency")
+        exceptions.append({
+            "type": "missing_currency",
+            "invoice_currency": invoice.get("currency") if invoice else "N/A",
+            "expected_format": "3-letter ISO code (e.g., USD)",
+            "comparison_method": "existence_check",
+            "threshold": "Currency field is required"
+        })
         return {
             "tool": tool_name,
             "status": "FAIL",
@@ -59,15 +65,34 @@ def validate_currency(invoice: Dict[str, Any], contract: Dict[str, Any]) -> Dict
     
     # Validate currency format (should be 3-letter ISO code)
     if len(invoice_currency) != 3 or not invoice_currency.isalpha():
-        exceptions.append("invalid_currency_format")
+        exceptions.append({
+            "type": "invalid_currency_format",
+            "invoice_currency": invoice_currency,
+            "currency_length": len(invoice_currency),
+            "expected_format": "3-letter ISO code (e.g., USD)",
+            "comparison_method": "format_validation",
+            "threshold": "Currency must be a 3-letter alphabetic code"
+        })
     
     # Check if currency is supported
     if invoice_currency not in SUPPORTED_CURRENCIES:
-        exceptions.append("unsupported_currency")
+        exceptions.append({
+            "type": "unsupported_currency",
+            "invoice_currency": invoice_currency,
+            "supported_currencies": list(SUPPORTED_CURRENCIES),
+            "comparison_method": "supported_currencies_check",
+            "threshold": f"Currency must be one of: {', '.join(SUPPORTED_CURRENCIES)}"
+        })
     
     # Check currency consistency with contract (if contract specifies currency)
     if contract_currency and contract_currency != invoice_currency:
-        exceptions.append("currency_mismatch")
+        exceptions.append({
+            "type": "currency_mismatch",
+            "invoice_currency": invoice_currency,
+            "contract_currency": contract_currency,
+            "comparison_method": "contract_currency_match",
+            "threshold": "Invoice currency must match contract currency"
+        })
     
     return {
         "tool": tool_name,
