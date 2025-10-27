@@ -254,7 +254,7 @@ def submit_human_response():
 
 @app.route('/feedback/complete', methods=['POST'])
 def complete_feedback_conversation():
-    """Mark feedback conversation as completed."""
+    """Mark feedback conversation as completed and trigger learning processing."""
     try:
         data = request.get_json()
         
@@ -262,10 +262,41 @@ def complete_feedback_conversation():
         conversation = local_db.get_feedback_conversation(data['conversation_id'])
         
         if conversation:
+            # Mark conversation as completed
             local_db.update_feedback_conversation(
                 feedback_id=conversation[0]['id'],
                 conversation_status='completed'
             )
+            
+            # Trigger learning processing for the initial feedback entry
+            # This will process ALL information from the entire conversation
+            initial_feedback = conversation[0]
+            
+            # Check if this is an approval override case
+            # Single schema: exception_validity='CORRECT' AND invoice_decision='APPROVED'
+            exception_validity = initial_feedback.get('exception_validity', '')
+            invoice_decision = initial_feedback.get('invoice_decision', '')
+            is_approval_override = (
+                exception_validity.upper() == 'CORRECT' and 
+                invoice_decision.upper() == 'APPROVED'
+            )
+            
+            if is_approval_override:
+                # Get the feedback_learning_processor
+                from learning_agent.feedback_learning_processor import FeedbackLearningProcessor
+                processor = FeedbackLearningProcessor()
+                
+                # Process learning with the initial feedback ID (which has all conversation context)
+                success = processor.process_feedback_learning(initial_feedback['id'])
+                
+                if success:
+                    print(f"✅ Learning processing completed for conversation {data['conversation_id']}")
+                else:
+                    print(f"⚠️  Learning processing failed for conversation {data['conversation_id']}")
+                
+                processor.close()
+            else:
+                print(f"ℹ️  Feedback is not an approval override case, skipping learning processing")
         
         local_db.close()
         
@@ -430,17 +461,15 @@ def submit_exception_review():
             exception_validity = data.get('expert_decision', 'CORRECT')  # CORRECT, INCORRECT, OVERRIDE
             invoice_decision = data.get('invoice_decision', 'APPROVED')  # APPROVED, REJECTED
             
-            # Get the actual exception status from the database/log
+            # Get the actual exception status from the database/log for context
             exception_record = local_db.get_exception_by_id(data['exception_id'])
             original_decision = exception_record.get('status', 'REJECTED') if exception_record else 'REJECTED'
             
-            # For backward compatibility, set human_correction based on invoice_decision
-            human_correction = invoice_decision
-            
+            # Store human feedback with exception_validity and invoice_decision
             feedback_id = local_db.store_human_feedback(
                 invoice_id=data.get('invoice_id', ''),
                 original_decision=original_decision,
-                human_correction=human_correction,
+                human_correction=invoice_decision,  # Use invoice_decision as human_correction for consistency
                 routing_queue=data.get('queue', ''),
                 feedback_text=data['expert_feedback'],
                 expert_name=data['expert_name'],
@@ -467,7 +496,7 @@ Correct Action: {invoice_decision}
             feedback_data = {
                 'invoice_id': data.get('invoice_id', ''),
                 'original_agent_decision': original_decision,
-                'human_correction': human_correction,
+                'human_correction': invoice_decision,  # Use invoice_decision as human_correction
                 'routing_queue': data.get('queue', ''),
                 'feedback_text': data['expert_feedback'],
                 'expert_name': data['expert_name'],

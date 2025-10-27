@@ -33,9 +33,10 @@ class FeedbackLearningProcessor:
     def process_feedback_learning(self, feedback_id: int) -> bool:
         """
         Process learning from a specific human feedback entry.
+        Synthesizes ALL conversation information including Q&A.
         
         Args:
-            feedback_id: ID of the human feedback to process
+            feedback_id: ID of the initial human feedback to process
             
         Returns:
             True if successful, False otherwise
@@ -47,16 +48,38 @@ class FeedbackLearningProcessor:
                 print(f"❌ Feedback ID {feedback_id} not found")
                 return False
             
+            # Get the FULL conversation if this is part of a conversation
+            conversation_id = feedback_data.get('conversation_id')
+            if conversation_id:
+                # Get all conversation entries
+                conversation = self.db.get_feedback_conversation(conversation_id)
+                if conversation:
+                    print(f"📝 Processing {len(conversation)} conversation entries")
+                    # Use the full conversation for more comprehensive learning
+                    feedback_data = self._synthesize_conversation_for_learning(conversation)
+            
             # Check if this is a "should be approved but was rejected" case
             if not self._is_approval_override_case(feedback_data):
                 print(f"ℹ️  Feedback {feedback_id} is not an approval override case, skipping")
+                print(f"   Debug - exception_validity: {feedback_data.get('exception_validity')}")
+                print(f"   Debug - invoice_decision: {feedback_data.get('invoice_decision')}")
+                print(f"   Expected: exception_validity='CORRECT' AND invoice_decision='APPROVED'")
                 return True
             
             # Get the related exception
             exception_data = self._get_exception_by_invoice_id(feedback_data['invoice_id'])
             if not exception_data:
-                print(f"❌ No exception found for invoice {feedback_data['invoice_id']}")
-                return False
+                print(f"⚠️  No exception found for invoice {feedback_data['invoice_id']}")
+                print(f"   This happens when feedback is submitted directly without a matching exception record.")
+                print(f"   Attempting to create exception record from feedback data...")
+                
+                # Try to create a minimal exception record from feedback
+                exception_data = self._create_exception_from_feedback(feedback_data)
+                if not exception_data:
+                    print(f"❌ Could not create exception record for invoice {feedback_data['invoice_id']}")
+                    return False
+                else:
+                    print(f"✅ Created exception record {exception_data.get('exception_id')} from feedback")
             
             # Get related data (invoice, PO, contract, etc.)
             related_data = self.db.get_related_data(feedback_data['invoice_id'])
@@ -67,20 +90,52 @@ class FeedbackLearningProcessor:
                 exception_data, feedback_data, related_data
             )
             
-            # Store learning insights in database
+            # Store learning insights in database (best-effort)
             success = self.db.update_exception_learning(
                 exception_id=exception_data['exception_id'],
                 learning_insights=learning_result['learning_insights'],
-                corrective_actions=learning_result['corrective_actions'],
+                decision_criteria=learning_result['decision_criteria'],
                 learning_agent_version=self.learning_agent_version
             )
             
             if not success:
-                print(f"❌ Failed to update exception {exception_data['exception_id']} with learning insights")
-                return False
+                print(f"⚠️  Failed to update exception {exception_data['exception_id']} with learning insights in DB; continuing to append playbook.")
             
             # Add to learning playbook
             updated_exception = self._get_exception_by_id(exception_data['exception_id'])
+            # Ensure the updated_exception carries learning data even if DB update failed
+            if updated_exception:
+                updated_exception.setdefault('learning_insights', learning_result['learning_insights'])
+                updated_exception.setdefault('decision_criteria', learning_result['decision_criteria'])
+                updated_exception.setdefault('key_distinguishing_factors', learning_result.get('key_distinguishing_factors', []))
+                updated_exception.setdefault('validation_signature', learning_result.get('validation_signature', 'N/A'))
+                updated_exception.setdefault('approval_conditions', learning_result.get('approval_conditions', []))
+                updated_exception.setdefault('confidence_score', learning_result.get('confidence_score', 0.0))
+                updated_exception.setdefault('generalization_warning', learning_result.get('generalization_warning', ''))
+                updated_exception.setdefault('learning_agent_version', self.learning_agent_version)
+            else:
+                updated_exception = {
+                    'exception_id': exception_data['exception_id'],
+                    'invoice_id': exception_data.get('invoice_id'),
+                    'exception_type': exception_data.get('exception_type'),
+                    'queue': exception_data.get('queue'),
+                    'supplier': exception_data.get('supplier'),
+                    'amount': exception_data.get('amount'),
+                    'po_number': exception_data.get('po_number'),
+                    'human_correction': exception_data.get('human_correction'),
+                    'expert_name': exception_data.get('expert_name'),
+                    'expert_feedback': exception_data.get('expert_feedback'),
+                    'learning_insights': learning_result['learning_insights'],
+                    'decision_criteria': learning_result['decision_criteria'],
+                    'key_distinguishing_factors': learning_result.get('key_distinguishing_factors', []),
+                    'validation_signature': learning_result.get('validation_signature', 'N/A'),
+                    'approval_conditions': learning_result.get('approval_conditions', []),
+                    'confidence_score': learning_result.get('confidence_score', 0.0),
+                    'generalization_warning': learning_result.get('generalization_warning', ''),
+                    'learning_agent_version': self.learning_agent_version,
+                    'learning_timestamp': datetime.now().isoformat()
+                }
+
             playbook_success = self.playbook_generator.append_to_playbook(updated_exception)
             
             if not playbook_success:
@@ -148,14 +203,50 @@ class FeedbackLearningProcessor:
                 "message": f"Error: {e}"
             }
     
+    def _synthesize_conversation_for_learning(self, conversation: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Synthesize a complete conversation into a single feedback data structure.
+        Includes all initial feedback and Q&A responses.
+        """
+        initial = conversation[0]
+        
+        # Build comprehensive feedback text including all Q&A
+        synthesized_feedback = f"""INITIAL FEEDBACK:
+{initial.get('feedback_text', '')}
+
+"""
+        
+        # Add all Q&A pairs
+        for item in conversation:
+            if not item.get('is_initial_feedback'):
+                question = item.get('feedback_text', '')
+                synthesized_feedback += f"Q&A:\n{question}\n\n"
+        
+        # Return synthesized feedback with all key information
+        return {
+            'invoice_id': initial.get('invoice_id'),
+            'original_agent_decision': initial.get('original_agent_decision'),
+            'human_correction': initial.get('human_correction'),
+            'routing_queue': initial.get('routing_queue'),
+            'expert_name': initial.get('expert_name'),
+            'feedback_type': initial.get('feedback_type'),
+            'feedback_text': synthesized_feedback,  # Comprehensive text with all Q&A
+            'conversation_id': initial.get('conversation_id'),
+            'exception_validity': initial.get('exception_validity'),
+            'invoice_decision': initial.get('invoice_decision')
+        }
+    
     def _is_approval_override_case(self, feedback_data: Dict[str, Any]) -> bool:
         """Check if this feedback represents an approval override case."""
-        original_decision = feedback_data.get('original_agent_decision', '').upper()
-        human_correction = feedback_data.get('human_correction', '').upper()
+        # Single source of truth: exception_validity and invoice_decision
+        exception_validity = feedback_data.get('exception_validity', '')
+        invoice_decision = feedback_data.get('invoice_decision', '')
         
-        # Check if human said it should be approved but was rejected
-        return (original_decision == 'REJECTED' and 
-                human_correction == 'APPROVED')
+        # Check if exception was marked as CORRECT and invoice should be APPROVED
+        if exception_validity.upper() == 'CORRECT' and invoice_decision.upper() == 'APPROVED':
+            return True
+        
+        return False
     
     def _get_feedback_by_id(self, feedback_id: int) -> Optional[Dict[str, Any]]:
         """Get feedback data by ID."""
@@ -192,6 +283,72 @@ class FeedbackLearningProcessor:
     def _get_exception_by_id(self, exception_id: str) -> Optional[Dict[str, Any]]:
         """Get exception data by exception ID."""
         return self.db.get_exception_by_id(exception_id)
+    
+    def _create_exception_from_feedback(self, feedback_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Create a minimal exception record from feedback data when one doesn't exist.
+        This allows processing feedback that was submitted without a pre-existing exception.
+        """
+        try:
+            import uuid
+            from datetime import datetime
+            
+            # Generate a new exception ID
+            exception_id = f"EXC-{uuid.uuid4().hex[:8].upper()}"
+            
+            # Create minimal exception data
+            exception_data = {
+                'exception_id': exception_id,
+                'invoice_id': feedback_data.get('invoice_id', ''),
+                'exception_type': 'human_correction',
+                'queue': feedback_data.get('routing_queue', 'general_exceptions'),
+                'status': feedback_data.get('human_correction', 'REJECTED'),
+                'supplier': None,
+                'amount': None,
+                'po_number': None,
+                'reason': f"Created from human feedback - {feedback_data.get('feedback_text', '')[:100]}",
+                'confidence_score': 0.0,
+                'expert_reviewed': True,
+                'expert_name': feedback_data.get('expert_name', ''),
+                'expert_feedback': feedback_data.get('feedback_text', ''),
+                'human_correction': feedback_data.get('human_correction', ''),
+                'created_at': datetime.now().isoformat(),
+                'reviewed_at': datetime.now().isoformat()
+            }
+            
+            # Store the exception in the database
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT OR REPLACE INTO system_exceptions 
+                (exception_id, invoice_id, exception_type, queue, status, reason, 
+                 expert_reviewed, expert_name, expert_feedback, human_correction, 
+                 reviewed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                exception_data['exception_id'],
+                exception_data['invoice_id'],
+                exception_data['exception_type'],
+                exception_data['queue'],
+                exception_data['status'],
+                exception_data['reason'],
+                exception_data['expert_reviewed'],
+                exception_data['expert_name'],
+                exception_data['expert_feedback'],
+                exception_data['human_correction'],
+                exception_data['reviewed_at']
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+            print(f"✅ Created exception record {exception_id} for invoice {exception_data['invoice_id']}")
+            return exception_data
+            
+        except Exception as e:
+            print(f"❌ Error creating exception from feedback: {e}")
+            return None
     
     def _get_pending_approval_overrides(self) -> List[Dict[str, Any]]:
         """Get all feedback that represents approval overrides and hasn't been processed for learning."""

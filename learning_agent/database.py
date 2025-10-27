@@ -197,6 +197,8 @@ class LearningDatabase:
                 conversation_status VARCHAR(20) DEFAULT 'active',
                 quality_score REAL DEFAULT 0.0,
                 conversation_history TEXT,
+                exception_validity VARCHAR(50),
+                invoice_decision VARCHAR(50),
                 FOREIGN KEY (learning_record_id) REFERENCES learning_records(id),
                 FOREIGN KEY (parent_feedback_id) REFERENCES human_feedback(id)
             )
@@ -273,7 +275,9 @@ class LearningDatabase:
             ("feedback_summary", "TEXT"),
             ("conversation_status", "VARCHAR(20) DEFAULT 'active'"),
             ("quality_score", "REAL DEFAULT 0.0"),
-            ("conversation_history", "TEXT")
+            ("conversation_history", "TEXT"),
+            ("exception_validity", "VARCHAR(50)"),
+            ("invoice_decision", "VARCHAR(50)")
         ]
         
         # Check if we need to add the new schema fields (for old databases)
@@ -404,14 +408,8 @@ class LearningDatabase:
         self.conn.commit()
         feedback_id = cursor.lastrowid
         
-        # Trigger learning processing for dual tuple cases:
-        # Exception is CORRECT (valid) AND Invoice should be APPROVED
-        if (exception_validity and exception_validity.upper() == 'CORRECT' and 
-            invoice_decision and invoice_decision.upper() == 'APPROVED'):
-            try:
-                self._trigger_learning_processing(feedback_id)
-            except Exception as e:
-                print(f"Warning: Failed to trigger learning processing for feedback {feedback_id}: {e}")
+        # Learning processing is triggered on conversation completion
+        # NOT here - to ensure all Q&A information is collected first
         
         return feedback_id
     
@@ -676,17 +674,24 @@ class LearningDatabase:
         return success
     
     def update_exception_learning(self, exception_id: str, learning_insights: str, 
-                                corrective_actions: str, learning_agent_version: str = "1.0") -> bool:
-        """Update an exception with learning insights and corrective actions."""
+                                decision_criteria: str, learning_agent_version: str = "1.0") -> bool:
+        """Update an exception with learning insights and decision criteria."""
         conn = self.get_connection()
         cursor = conn.cursor()
         
-        cursor.execute("""
+        # Check if decision_criteria column exists, if not use corrective_actions for backward compatibility
+        try:
+            cursor.execute("SELECT decision_criteria FROM system_exceptions LIMIT 1")
+            column_name = "decision_criteria"
+        except:
+            column_name = "corrective_actions"  # Fallback for old schema
+        
+        cursor.execute(f"""
             UPDATE system_exceptions 
-            SET learning_insights = ?, corrective_actions = ?, 
+            SET learning_insights = ?, {column_name} = ?, 
                 learning_timestamp = CURRENT_TIMESTAMP, learning_agent_version = ?
             WHERE exception_id = ?
-        """, (learning_insights, corrective_actions, learning_agent_version, exception_id))
+        """, (learning_insights, decision_criteria, learning_agent_version, exception_id))
         
         success = cursor.rowcount > 0
         conn.commit()

@@ -9,8 +9,13 @@ import sys
 import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-import google.generativeai as genai
-from google.genai import types
+# Optional Google SDK imports (fallback if unavailable)
+try:
+    import google.generativeai as genai  # type: ignore
+    from google.genai import types  # type: ignore
+except Exception:
+    genai = None  # type: ignore
+    types = None  # type: ignore
 
 # Add the parent directory to the path to import our modules
 sys.path.append(str(Path(__file__).parent.parent))
@@ -22,30 +27,37 @@ class LearningInsightsLLM:
     """LLM service for generating learning insights and corrective actions from human feedback."""
     
     def __init__(self, repo_root: str = None, api_key: str = None):
-        """Initialize the learning insights LLM service."""
+        """Initialize the learning insights LLM service with graceful fallback."""
         self.repo_root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
         self.db = LearningDatabase(os.path.join(self.repo_root, "learning_data", "learning.db"))
-        
-        # Configure Gemini API
-        if api_key:
-            genai.configure(api_key=api_key)
-        else:
-            # Try to get from .env file first
+
+        self.model = None
+        self.fallback_mode = False
+
+        # Configure Gemini API if SDK is available
+        if genai is not None:
+            configured = False
+            key_to_use = api_key
+            if not key_to_use:
+                try:
+                    from dotenv import load_dotenv  # type: ignore
+                    env_path = os.path.join(os.path.dirname(self.repo_root), ".env")
+                    load_dotenv(env_path)
+                except Exception:
+                    pass
+                key_to_use = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
             try:
-                from dotenv import load_dotenv
-                # Load .env file from projects directory
-                env_path = os.path.join(os.path.dirname(self.repo_root), ".env")
-                load_dotenv(env_path)
-            except ImportError:
-                pass
-            
-            # Try to get from environment variables
-            api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise ValueError("API key required. Set GOOGLE_API_KEY or GEMINI_API_KEY in .env file or environment variable.")
-            genai.configure(api_key=api_key)
-        
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+                if key_to_use:
+                    genai.configure(api_key=key_to_use)
+                    self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+                    configured = True
+            except Exception:
+                configured = False
+            if not configured:
+                self.fallback_mode = True
+        else:
+            # SDK not available
+            self.fallback_mode = True
     
     def generate_learning_insights(self, exception_data: Dict[str, Any], 
                                  feedback_data: Dict[str, Any], 
@@ -71,22 +83,59 @@ You are an expert system architect analyzing human feedback on invoice processin
 CONTEXT:
 {context}
 
-TASK: Generate learning insights and corrective actions for this approval override case.
+TASK: Extract decision rules and criteria from the VALIDATION_DETAILS that explain why the human approved this exception.
+
+YOUR GOAL: Create a precise RULE that the adjudication agent can use to approve FUTURE EXCEPTIONS ONLY when they match the EXACT conditions shown in VALIDATION_DETAILS.
+
+CRITICAL ANALYSIS REQUIREMENTS:
+1. Examine the VALIDATION_DETAILS section carefully - this contains the EXACT validation failure that occurred
+2. Identify what the human approved despite this failure
+3. Extract the SPECIFIC thresholds, differences, and conditions that were acceptable
+4. Define clear BOUNDARIES to prevent over-generalization
 
 RESPONSE FORMAT (JSON only, no other text):
 {{
-    "learning_insights": "Brief learning insight (max 200 words)",
-    "corrective_actions": "Priority 1 [HIGH]: [Action] - [Description]\\n- File: [path]\\n- Change: [specific change]\\n\\nPriority 2 [MEDIUM]: [Action] - [Description]\\n- File: [path]\\n- Change: [specific change]",
-    "business_rules_extracted": ["Rule 1", "Rule 2"],
-    "patterns_identified": ["Pattern 1", "Pattern 2"],
+    "learning_insights": "Brief summary of why this exception was approved (max 150 words)",
+    "decision_criteria": "EXACT criteria extracted from VALIDATION_DETAILS that must be met:\\n\\nVALIDATION PATTERN:\\n- Tool: [same tool]\\n- Field: [same field]\\n- FAILED_RULE: [same rule]\\n\\nACCEPTABLE RANGES:\\n- [Specific condition based on DIFFERENCE, THRESHOLD, or COMPARISON_METHOD]\\n- Example: If DIFFERENCE was 0.02, specify acceptable range (e.g., '≤0.02' or exact match)\\n\\nMUST MATCH:\\n- [Required matching conditions from VALIDATION_DETAILS]\\n\\nDO NOT APPROVE IF:\\n- [Conditions that would indicate a different or more severe issue]\\n\\nCONTEXTUAL REQUIREMENTS:\\n- [Any contextual factors that must be present]",
+    "key_distinguishing_factors": ["Factor 1 from VALIDATION_DETAILS", "Factor 2"],
+    "validation_signature": "{{Tool: X, Field: Y, Rule: Z, Difference: ≤W}}",
+    "approval_conditions": ["Condition 1", "Condition 2"],
     "confidence_score": 0.85,
-    "additional_recommendations": "Brief recommendation (max 100 words)"
+    "generalization_warning": "WARNING: This rule applies ONLY to exceptions matching the exact VALIDATION_DETAILS pattern. Do not generalize to different tools, fields, or rule types."
 }}
 
-Keep responses concise and focused. Maximum 500 words total.
+CRITICAL CONSTRAINTS:
+- Base your decision criteria EXCLUSIVELY on what appears in VALIDATION_DETAILS
+- Be SPECIFIC with exact values, ranges, and thresholds
+- Include clear BOUNDARIES to prevent false positives
+- DO NOT approve exceptions with different VALIDATION_DETAILS signatures
+- Maximum 500 words total
 """
 
         try:
+            if self.fallback_mode or self.model is None:
+                # Deterministic fallback without external LLM
+                summary = self._fallback_summarize_context(exception_data, feedback_data, related_data)
+                actions = self._fallback_generate_actions(exception_data, feedback_data)
+                validation_details = exception_data.get('VALIDATION_DETAILS', [])
+                signature = "Unknown"
+                if validation_details and len(validation_details) > 0:
+                    block = validation_details[0]
+                    tool = block.get('Tool', 'N/A')
+                    field = block.get('Field', 'N/A')
+                    rule = block.get('FAILED_RULE', 'N/A')
+                    diff = block.get('DIFFERENCE', 'N/A')
+                    signature = f"{{Tool: {tool}, Field: {field}, Rule: {rule}, Difference: {diff}}}"
+                return {
+                    "learning_insights": summary,
+                    "decision_criteria": actions,
+                    "key_distinguishing_factors": [],
+                    "validation_signature": signature,
+                    "approval_conditions": [],
+                    "confidence_score": 0.5,
+                    "generalization_warning": "Generated in fallback mode without external LLM."
+                }
+
             response = self.model.generate_content(prompt)
             response_text = response.text.strip()
             
@@ -105,11 +154,12 @@ Keep responses concise and focused. Maximum 500 words total.
                 print(f"Warning: Could not extract JSON from LLM response: {response_text[:200]}...")
                 return {
                     "learning_insights": "Error parsing LLM response",
-                    "corrective_actions": "Error parsing LLM response",
-                    "business_rules_extracted": [],
-                    "patterns_identified": [],
+                    "decision_criteria": "Error parsing LLM response",
+                    "key_distinguishing_factors": [],
+                    "validation_signature": "Unknown",
+                    "approval_conditions": [],
                     "confidence_score": 0.0,
-                    "additional_recommendations": "Error in LLM response parsing"
+                    "generalization_warning": "Error in LLM response parsing"
                 }
             
             # Clean up the JSON text to handle control characters
@@ -138,11 +188,12 @@ Keep responses concise and focused. Maximum 500 words total.
                 print(f"Warning: Could not parse JSON, creating fallback response: {e}")
                 return {
                     "learning_insights": f"Learning insights generated but JSON parsing failed. Raw response: {json_text[:200]}...",
-                    "corrective_actions": f"Corrective actions generated but JSON parsing failed. Raw response: {json_text[:200]}...",
-                    "business_rules_extracted": ["JSON parsing error - manual review required"],
-                    "patterns_identified": ["JSON parsing error - manual review required"],
+                    "decision_criteria": f"Decision criteria generated but JSON parsing failed. Raw response: {json_text[:200]}...",
+                    "key_distinguishing_factors": ["JSON parsing error - manual review required"],
+                    "validation_signature": "Unknown",
+                    "approval_conditions": ["JSON parsing error - manual review required"],
                     "confidence_score": 0.3,
-                    "additional_recommendations": "Manual review of LLM response required due to JSON parsing error"
+                    "generalization_warning": "Manual review of LLM response required due to JSON parsing error"
                 }
             
         except json.JSONDecodeError as e:
@@ -150,22 +201,83 @@ Keep responses concise and focused. Maximum 500 words total.
             print(f"Response: {response_text[:500]}...")
             return {
                 "learning_insights": f"JSON parsing error: {e}",
-                "corrective_actions": f"JSON parsing error: {e}",
-                "business_rules_extracted": [],
-                "patterns_identified": [],
+                "decision_criteria": f"JSON parsing error: {e}",
+                "key_distinguishing_factors": [],
+                "validation_signature": "Unknown",
+                "approval_conditions": [],
                 "confidence_score": 0.0,
-                "additional_recommendations": "Error in JSON parsing"
+                "generalization_warning": "Error in JSON parsing"
             }
         except Exception as e:
+            # Final fallback
             print(f"Error generating learning insights: {e}")
+            summary = self._fallback_summarize_context(exception_data, feedback_data, related_data)
+            actions = self._fallback_generate_actions(exception_data, feedback_data)
+            validation_details = exception_data.get('VALIDATION_DETAILS', [])
+            signature = "Unknown"
+            if validation_details and len(validation_details) > 0:
+                block = validation_details[0]
+                tool = block.get('Tool', 'N/A')
+                field = block.get('Field', 'N/A')
+                rule = block.get('FAILED_RULE', 'N/A')
+                diff = block.get('DIFFERENCE', 'N/A')
+                signature = f"{{Tool: {tool}, Field: {field}, Rule: {rule}, Difference: {diff}}}"
             return {
-                "learning_insights": f"Error: {e}",
-                "corrective_actions": f"Error: {e}",
-                "business_rules_extracted": [],
-                "patterns_identified": [],
-                "confidence_score": 0.0,
-                "additional_recommendations": "Error in processing"
+                "learning_insights": summary,
+                "decision_criteria": actions,
+                "key_distinguishing_factors": [],
+                "validation_signature": signature,
+                "approval_conditions": [],
+                "confidence_score": 0.4,
+                "generalization_warning": "Fallback mode used due to error."
             }
+
+    def _fallback_summarize_context(self, exception_data: Dict[str, Any], feedback_data: Dict[str, Any], related_data: Dict[str, Any]) -> str:
+        parts = []
+        parts.append(f"Invoice {exception_data.get('invoice_id','N/A')} rejected by agent but approved by expert.")
+        if exception_data.get('exception_type'):
+            parts.append(f"Exception: {exception_data.get('exception_type')} in {exception_data.get('queue','N/A')} queue.")
+        rationale = feedback_data.get('feedback_text') or ''
+        if rationale:
+            parts.append(f"Expert rationale: {rationale[:300]}.")
+        if related_data.get('invoice'):
+            parts.append("Invoice data considered.")
+        if related_data.get('po_item'):
+            parts.append("PO data considered.")
+        if related_data.get('contract'):
+            parts.append("Contract data considered.")
+        return " ".join(parts)
+
+    def _fallback_generate_actions(self, exception_data: Dict[str, Any], feedback_data: Dict[str, Any]) -> str:
+        exc_type = exception_data.get('exception_type','N/A')
+        queue = exception_data.get('queue','general_exceptions')
+        validation_details = exception_data.get('VALIDATION_DETAILS', [])
+        
+        criteria = "VALIDATION PATTERN:\n"
+        if validation_details and len(validation_details) > 0:
+            block = validation_details[0]
+            tool = block.get('Tool', 'N/A')
+            field = block.get('Field', 'N/A')
+            rule = block.get('FAILED_RULE', 'N/A')
+            criteria += f"- Tool: {tool}\n- Field: {field}\n- FAILED_RULE: {rule}\n\n"
+        else:
+            criteria += f"- Exception Type: {exc_type}\n- Queue: {queue}\n\n"
+        
+        criteria += "MUST HAVE:\n"
+        criteria += f"- Same exception type: {exc_type}\n"
+        criteria += f"- Same queue: {queue}\n\n"
+        
+        criteria += "THRESHOLDS:\n"
+        criteria += "- Review feedback text for specific thresholds\n\n"
+        
+        criteria += "BOUNDARIES:\n"
+        criteria += "- Only apply if ALL conditions match exactly\n"
+        criteria += "- Do not generalize beyond this specific case\n\n"
+        
+        criteria += "CONTEXTUAL FACTORS:\n"
+        criteria += f"- Expert feedback: {feedback_data.get('feedback_text', 'N/A')[:200]}"
+        
+        return criteria
     
     def _create_learning_context(self, exception_data: Dict[str, Any], 
                                feedback_data: Dict[str, Any], 
@@ -184,7 +296,17 @@ Keep responses concise and focused. Maximum 500 words total.
         context_parts.append(f"Amount: {exception_data.get('amount', 'N/A')}")
         context_parts.append(f"Supplier: {exception_data.get('supplier', 'N/A')}")
         context_parts.append(f"Routing Reason: {exception_data.get('routing_reason', 'N/A')}")
-        context_parts.append(f"Context: {exception_data.get('context', 'N/A')}")
+        
+        # Add VALIDATION_DETAILS if present (this is the KEY information)
+        if 'VALIDATION_DETAILS' in exception_data and exception_data['VALIDATION_DETAILS']:
+            context_parts.append("\nVALIDATION_DETAILS:")
+            context_parts.append("=" * 30)
+            for i, block in enumerate(exception_data['VALIDATION_DETAILS'], 1):
+                context_parts.append(f"\nBlock {i}:")
+                for key, value in block.items():
+                    context_parts.append(f"  {key}: {value}")
+        
+        context_parts.append(f"\nContext: {exception_data.get('context', 'N/A')}")
         
         # Human feedback details
         context_parts.append("\nHUMAN FEEDBACK")

@@ -58,6 +58,8 @@ Timestamp: {entry.get('timestamp', 'N/A')}
 Exception ID: {entry.get('exception_id', 'N/A')}
 Invoice ID: {entry.get('invoice_id', 'N/A')}
 Exception Type: {entry.get('exception_type', 'N/A')}
+Supplier: {entry.get('supplier', 'N/A')}
+Amount: {entry.get('amount', 'N/A')}
 Original Decision: {entry.get('original_decision', 'N/A')}
 Expert Name: {entry.get('expert_name', 'N/A')}
 
@@ -67,8 +69,20 @@ Expert Feedback:
 Learning Insights:
 {entry.get('learning_insights', 'N/A')}
 
-Corrective Actions:
-{entry.get('corrective_actions', 'N/A')}
+VALIDATION SIGNATURE (MUST MATCH THIS EXACT PATTERN):
+{entry.get('validation_signature', 'N/A')}
+
+DECISION CRITERIA (USE THIS TO EVALUATE FUTURE EXCEPTIONS):
+{entry.get('decision_criteria', 'N/A')}
+
+Key Distinguishing Factors:
+{', '.join(entry.get('key_distinguishing_factors', []))}
+
+Approval Conditions:
+{chr(10).join('- ' + cond for cond in entry.get('approval_conditions', []))}
+
+Generalization Warning:
+{entry.get('generalization_warning', 'None')}
 
 ---
 

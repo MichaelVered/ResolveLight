@@ -17,6 +17,8 @@ class ExceptionParser:
         exceptions = []
         current_exception = None
         current_section = None
+        current_validation_block = None
+        validation_blocks = []
         
         try:
             with open(log_file, 'r') as f:
@@ -26,13 +28,31 @@ class ExceptionParser:
                     if line.strip() == "=== EXCEPTION_START ===":
                         current_exception = {}
                         current_section = "HEADER"
+                        validation_blocks = []
+                        current_validation_block = None
                     elif line.strip() == "=== EXCEPTION_END ===":
                         if current_exception is not None:
+                            # Store any pending validation block
+                            if current_validation_block and len(current_validation_block) > 0:
+                                validation_blocks.append(current_validation_block)
+                            if validation_blocks:
+                                current_exception['VALIDATION_DETAILS'] = validation_blocks
                             exceptions.append(current_exception)
                             current_exception = None
                             current_section = None
+                            validation_blocks = []
+                            current_validation_block = None
                     elif current_exception is not None:
-                        if line.strip() in ["CONTEXT:", "SUGGESTED_ACTIONS:", "METADATA:"]:
+                        if line.strip() == "VALIDATION_DETAILS:":
+                            current_section = "VALIDATION_DETAILS"
+                            if current_validation_block and len(current_validation_block) > 0:
+                                validation_blocks.append(current_validation_block)
+                            current_validation_block = {}
+                        elif line.strip() in ["CONTEXT:", "SUGGESTED_ACTIONS:", "METADATA:"]:
+                            # Transition out of VALIDATION_DETAILS
+                            if current_section == "VALIDATION_DETAILS" and current_validation_block and len(current_validation_block) > 0:
+                                validation_blocks.append(current_validation_block)
+                                current_validation_block = None
                             current_section = line.strip().replace(":", "").lower()
                             current_exception[current_section] = ""
                         elif current_section == "HEADER" and ":" in line:
@@ -40,6 +60,16 @@ class ExceptionParser:
                             field = field.strip()
                             value = value.strip()
                             current_exception[field] = value
+                        elif current_section == "VALIDATION_DETAILS":
+                            if ":" in line:
+                                field, value = line.split(":", 1)
+                                field = field.strip()
+                                value = value.strip()
+                                current_validation_block[field] = value
+                            elif line.strip() == "" and current_validation_block and len(current_validation_block) > 0:
+                                # Empty line indicates end of current validation block
+                                validation_blocks.append(current_validation_block)
+                                current_validation_block = {}
                         elif current_section and current_section in current_exception:
                             current_exception[current_section] += line + "\n"
         except FileNotFoundError:
@@ -91,7 +121,17 @@ PO_NUMBER: {exception.get('PO_NUMBER', 'N/A')}
 AMOUNT: {exception.get('AMOUNT', 'N/A')}
 SUPPLIER: {exception.get('SUPPLIER', 'N/A')}
 ROUTING_REASON: {exception.get('ROUTING_REASON', 'N/A')}
-MANAGER_APPROVAL_REQUIRED: {exception.get('MANAGER_APPROVAL_REQUIRED', 'N/A')}
+MANAGER_APPROVAL_REQUIRED: {exception.get('MANAGER_APPROVAL_REQUIRED', 'N/A')}"""
+
+        # Add VALIDATION_DETAILS if present
+        if 'VALIDATION_DETAILS' in exception and exception['VALIDATION_DETAILS']:
+            formatted += "\n\nVALIDATION_DETAILS:\n"
+            for i, block in enumerate(exception['VALIDATION_DETAILS'], 1):
+                formatted += f"\nBlock {i}:\n"
+                for key, value in block.items():
+                    formatted += f"  {key}: {value}\n"
+
+        formatted += f"""
 
 CONTEXT:
 {exception.get('CONTEXT', 'N/A')}

@@ -235,7 +235,6 @@
 let currentConversationId = null;
 let currentFeedbackId = null;
 let currentQuestionIndex = 0;
-let llmQuestions = [];
 
 // Auto-fill invoice ID from URL parameters if available
 document.addEventListener('DOMContentLoaded', function() {
@@ -267,7 +266,6 @@ document.getElementById('initialFeedbackForm').addEventListener('submit', functi
         if (data.success) {
             currentConversationId = data.conversation_id;
             currentFeedbackId = data.feedback_id;
-            llmQuestions = data.questions || [];
             
             // Show LLM chat section
             document.getElementById('llmChatSection').style.display = 'block';
@@ -276,12 +274,8 @@ document.getElementById('initialFeedbackForm').addEventListener('submit', functi
             // Display initial feedback in chat
             addMessageToChat('human', 'Initial Feedback Submitted', formData.get('feedback_text'));
             
-            // Display LLM questions
-            if (llmQuestions.length > 0) {
-                displayLLMQuestions();
-            } else {
-                showFinalSummary();
-            }
+            // Start with first dynamic question (instead of displaying all upfront)
+            generateAndDisplayNextQuestion();
         } else {
             alert('Error: ' + data.message);
         }
@@ -296,17 +290,70 @@ document.getElementById('initialFeedbackForm').addEventListener('submit', functi
     });
 });
 
-function displayLLMQuestions() {
-    if (currentQuestionIndex < llmQuestions.length) {
-        const question = llmQuestions[currentQuestionIndex];
-        addMessageToChat('ai', `Question ${currentQuestionIndex + 1}`, question);
-        
-        // Show response form
-        document.getElementById('humanResponseForm').style.display = 'block';
-        document.getElementById('humanResponse').focus();
-    } else {
-        showFinalSummary();
+function generateAndDisplayNextQuestion() {
+    const maxQuestions = 3;
+    
+    // Enforce maximum 3 questions limit
+    if (currentQuestionIndex >= maxQuestions) {
+        addMessageToChat('ai', 'Maximum Questions Reached', `Reached maximum of ${maxQuestions} questions. Completing conversation.`);
+        setTimeout(() => {
+            showFinalSummary();
+        }, 2000);
+        return;
     }
+    
+    // Show loading indicator
+    addMessageToChat('ai', 'AI Thinking...', 'Analyzing conversation and generating next question...');
+    
+    // Generate next question dynamically
+    fetch('/feedback/generate_next_question', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            conversation_id: currentConversationId,
+            current_question_index: currentQuestionIndex
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.status === 'conversation_complete') {
+            // LLM decided conversation is complete
+            addMessageToChat('ai', 'Conversation Complete', data.reasoning);
+            setTimeout(() => {
+                showFinalSummary();
+            }, 2000);
+        } else if (data.success && data.next_question) {
+            // Display the next question
+            currentQuestionIndex++;
+            addMessageToChat('ai', `Question ${currentQuestionIndex}`, data.next_question);
+            
+            // Append question to conversation history
+            fetch('/feedback/append_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    conversation_id: currentConversationId,
+                    content: data.next_question,
+                    content_type: `QUESTION ${currentQuestionIndex}`
+                })
+            });
+            
+            document.getElementById('humanResponseForm').style.display = 'block';
+            document.getElementById('humanResponse').focus();
+        } else {
+            // No more questions
+            showFinalSummary();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error generating next question.');
+        showFinalSummary();
+    });
 }
 
 function addMessageToChat(sender, title, content) {
@@ -363,20 +410,12 @@ document.getElementById('humanResponseForm').addEventListener('submit', function
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            currentQuestionIndex++;
             document.getElementById('humanResponse').value = '';
             
-            if (currentQuestionIndex < llmQuestions.length) {
-                // Show next question
-                setTimeout(() => {
-                    displayLLMQuestions();
-                }, 1000);
-            } else {
-                // All questions answered, show summary
-                setTimeout(() => {
-                    showFinalSummary();
-                }, 1000);
-            }
+            // Generate next question dynamically (instead of showing predefined questions)
+            setTimeout(() => {
+                generateAndDisplayNextQuestion();
+            }, 1000);
         } else {
             alert('Error: ' + data.message);
         }

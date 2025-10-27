@@ -35,10 +35,10 @@ class LearningPlaybookGenerator:
         Generate a single playbook entry from exception data with learning insights.
         
         Args:
-            exception_data: Exception data including learning insights and corrective actions
+            exception_data: Exception data including learning insights and decision criteria
             
         Returns:
-            Formatted playbook entry
+            Formatted playbook entry optimized for adjudication agent
         """
         entry = {
             "timestamp": exception_data.get('learning_timestamp', datetime.now().isoformat()),
@@ -53,10 +53,19 @@ class LearningPlaybookGenerator:
             "expert_name": exception_data.get('expert_name', 'N/A'),
             "expert_feedback": exception_data.get('expert_feedback', 'N/A'),
             "learning_insights": exception_data.get('learning_insights', 'N/A'),
-            "corrective_actions": exception_data.get('corrective_actions', 'N/A'),
+            "decision_criteria": exception_data.get('decision_criteria', 'N/A'),
+            "validation_signature": exception_data.get('validation_signature', 'N/A'),
+            "key_distinguishing_factors": exception_data.get('key_distinguishing_factors', []),
+            "approval_conditions": exception_data.get('approval_conditions', []),
+            "confidence_score": exception_data.get('confidence_score', 0.0),
+            "generalization_warning": exception_data.get('generalization_warning', ''),
             "learning_agent_version": exception_data.get('learning_agent_version', '1.0'),
-            "status": "pending_implementation"
+            "status": "active"
         }
+        
+        # Add VALIDATION_DETAILS to playbook entry for reference
+        if 'VALIDATION_DETAILS' in exception_data:
+            entry['validation_details'] = exception_data['VALIDATION_DETAILS']
         
         return entry
     
