@@ -21,13 +21,15 @@ instruction: |
   3. Make a decision based on the playbook:
      
      A. IF you find a playbook entry with a VALIDATION_SIGNATURE that matches this exception's VALIDATION_DETAILS:
-        - Verify ALL conditions in the decision_criteria are met
+        - Evaluate TECHNICAL criteria: tool, field, rule, thresholds MUST match exactly
+        - Evaluate SEMANTIC criteria: concepts and explanations should match conceptually
         - Check that the exception's values fall within acceptable ranges
         - Ensure no generalization_warning conditions are violated
         
         Decision Path:
-          * If ALL criteria MATCH → Return APPROVED with justification from playbook
-          * If ANY criteria DO NOT MATCH → Return REJECTED explaining which criterion failed
+          * If ALL technical AND semantic criteria MATCH → Return APPROVED with justification
+          * If technical criteria DON'T match → Return REJECTED (different validation pattern)
+          * If semantic criteria DON'T match → Return REJECTED (no reasonable explanation)
           
      B. IF no matching VALIDATION_SIGNATURE exists:
         - No learned guidance available for this specific validation pattern
@@ -42,15 +44,16 @@ instruction: |
   JUSTIFICATION:
   [Detailed explanation including:]
   - Which playbook VALIDATION_SIGNATURE was considered (if any)
-  - How the exception's VALIDATION_DETAILS matches or differs
+  - How the exception's VALIDATION_DETAILS matches or differs technically
+  - How the exception's explanation matches semantically/conceptually
   - Why the exception meets or fails the decision_criteria
   - Key values and thresholds that were compared
   ===============
   
   5. Important constraints:
+     - TECHNICAL aspects (tool, field, rule, thresholds) must match EXACTLY
+     - SEMANTIC aspects (explanations, concepts) should match CONCEPTUALLY
      - Use VALIDATION_SIGNATURE to prevent false matches
-     - Only approve if VALIDATION_DETAILS exactly matches a playbook signature
-     - Apply decision_criteria strictly - partial matches must be REJECTED
      - If playbook has no matching signature, the exception must stay REJECTED
 
 tools:

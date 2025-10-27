@@ -85,30 +85,36 @@ CONTEXT:
 
 TASK: Extract decision rules and criteria from the VALIDATION_DETAILS that explain why the human approved this exception.
 
-YOUR GOAL: Create a precise RULE that the adjudication agent can use to approve FUTURE EXCEPTIONS ONLY when they match the EXACT conditions shown in VALIDATION_DETAILS.
+YOUR GOAL: Create a generalizable but precise RULE that the adjudication agent can use to approve FUTURE SIMILAR EXCEPTIONS that match the semantic pattern and technical criteria.
 
 CRITICAL ANALYSIS REQUIREMENTS:
 1. Examine the VALIDATION_DETAILS section carefully - this contains the EXACT validation failure that occurred
-2. Identify what the human approved despite this failure
-3. Extract the SPECIFIC thresholds, differences, and conditions that were acceptable
-4. Define clear BOUNDARIES to prevent over-generalization
+2. Identify what the human approved despite this failure - look for SEMANTIC PATTERNS not exact words
+3. Extract SPECIFIC thresholds, differences, and ranges (these must be exact)
+4. Extract GENERALIZABLE concepts and explanations (use semantic matching, not exact word matching)
+5. Define clear BOUNDARIES to prevent false positives
+
+GENERALIZATION GUIDELINES:
+- DO generalize: concepts, semantic patterns, reasonable explanations (e.g., "discount with reasonable explanation" not "loyalty discount")
+- DO NOT generalize: exact values, thresholds, validation tools, or fields (these must match exactly)
+- Example: If human approved a "loyalty discount", extract the generalizable concept as "discount" with "reasonable documented explanation"
+- Look for the SEMANTIC MEANING behind the approval, not the exact wording
 
 RESPONSE FORMAT (JSON only, no other text):
 {{
     "learning_insights": "Brief summary of why this exception was approved (max 150 words)",
-    "decision_criteria": "EXACT criteria extracted from VALIDATION_DETAILS that must be met:\\n\\nVALIDATION PATTERN:\\n- Tool: [same tool]\\n- Field: [same field]\\n- FAILED_RULE: [same rule]\\n\\nACCEPTABLE RANGES:\\n- [Specific condition based on DIFFERENCE, THRESHOLD, or COMPARISON_METHOD]\\n- Example: If DIFFERENCE was 0.02, specify acceptable range (e.g., '≤0.02' or exact match)\\n\\nMUST MATCH:\\n- [Required matching conditions from VALIDATION_DETAILS]\\n\\nDO NOT APPROVE IF:\\n- [Conditions that would indicate a different or more severe issue]\\n\\nCONTEXTUAL REQUIREMENTS:\\n- [Any contextual factors that must be present]",
-    "key_distinguishing_factors": ["Factor 1 from VALIDATION_DETAILS", "Factor 2"],
+    "decision_criteria": "Criteria extracted from VALIDATION_DETAILS:\\n\\nVALIDATION PATTERN (EXACT MATCH REQUIRED):\\n- Tool: [same tool]\\n- Field: [same field]\\n- FAILED_RULE: [same rule]\\n\\nACCEPTABLE RANGES (EXACT VALUES):\\n- [Specific condition based on DIFFERENCE, THRESHOLD, or COMPARISON_METHOD]\\n- Example: If DIFFERENCE was 0.02, specify acceptable range (e.g., '≤0.02')\\n\\nSEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):\\n- [Generalizable concepts: e.g., 'discount with documented explanation' not 'loyalty discount']\\n- [Reasonable explanations that justify the exception]\\n\\nMUST HAVE:\\n- [Required technical conditions that must match exactly]\\n- [Required semantic conditions that should match conceptually]\\n\\nDO NOT APPROVE IF:\\n- [Different validation pattern (different tool/field/rule)]\\n- [Threshold/range exceeded]\\n- [No reasonable documented explanation]\\n- [Other issues present besides the approved exception]",
+    "key_distinguishing_factors": ["Technical factor", "Semantic/conceptual factor"],
     "validation_signature": "{{Tool: X, Field: Y, Rule: Z, Difference: ≤W}}",
-    "approval_conditions": ["Condition 1", "Condition 2"],
+    "approval_conditions": ["Technical condition", "Semantic/conceptual condition"],
     "confidence_score": 0.85,
-    "generalization_warning": "WARNING: This rule applies ONLY to exceptions matching the exact VALIDATION_DETAILS pattern. Do not generalize to different tools, fields, or rule types."
+    "generalization_warning": "WARNING: Technical aspects (tool, field, rule, thresholds) must match exactly. Semantic aspects (explanations, concepts) should match conceptually. Do not approve if validation pattern differs."
 }}
 
 CRITICAL CONSTRAINTS:
-- Base your decision criteria EXCLUSIVELY on what appears in VALIDATION_DETAILS
-- Be SPECIFIC with exact values, ranges, and thresholds
+- Match TECHNICAL aspects exactly (tool, field, rule, thresholds)
+- Match SEMANTIC aspects conceptually (generalizable concepts and explanations)
 - Include clear BOUNDARIES to prevent false positives
-- DO NOT approve exceptions with different VALIDATION_DETAILS signatures
 - Maximum 500 words total
 """
 
@@ -253,7 +259,7 @@ CRITICAL CONSTRAINTS:
         queue = exception_data.get('queue','general_exceptions')
         validation_details = exception_data.get('VALIDATION_DETAILS', [])
         
-        criteria = "VALIDATION PATTERN:\n"
+        criteria = "VALIDATION PATTERN (EXACT MATCH REQUIRED):\n"
         if validation_details and len(validation_details) > 0:
             block = validation_details[0]
             tool = block.get('Tool', 'N/A')
@@ -263,16 +269,23 @@ CRITICAL CONSTRAINTS:
         else:
             criteria += f"- Exception Type: {exc_type}\n- Queue: {queue}\n\n"
         
-        criteria += "MUST HAVE:\n"
-        criteria += f"- Same exception type: {exc_type}\n"
-        criteria += f"- Same queue: {queue}\n\n"
-        
-        criteria += "THRESHOLDS:\n"
+        criteria += "ACCEPTABLE RANGES (EXACT VALUES):\n"
         criteria += "- Review feedback text for specific thresholds\n\n"
         
-        criteria += "BOUNDARIES:\n"
-        criteria += "- Only apply if ALL conditions match exactly\n"
-        criteria += "- Do not generalize beyond this specific case\n\n"
+        criteria += "SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):\n"
+        criteria += "- Extract generalizable concepts from expert feedback\n"
+        criteria += "- Look for semantic patterns, not exact words\n\n"
+        
+        criteria += "MUST HAVE:\n"
+        criteria += f"- Same exception type: {exc_type}\n"
+        criteria += f"- Same queue: {queue}\n"
+        criteria += "- Technical aspects match exactly\n"
+        criteria += "- Semantic aspects match conceptually\n\n"
+        
+        criteria += "DO NOT APPROVE IF:\n"
+        criteria += "- Different validation pattern\n"
+        criteria += "- Threshold exceeded\n"
+        criteria += "- No reasonable documented explanation\n\n"
         
         criteria += "CONTEXTUAL FACTORS:\n"
         criteria += f"- Expert feedback: {feedback_data.get('feedback_text', 'N/A')[:200]}"
