@@ -45,7 +45,7 @@ class FeedbackLLMService:
                 raise ValueError("API key required. Set GOOGLE_API_KEY or GEMINI_API_KEY in .env file or environment variable.")
             genai.configure(api_key=api_key)
         
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        self.model = genai.GenerativeModel('gemini-2.5-pro')
     
     def generate_feedback_questions(self, feedback_data: Dict[str, Any]) -> Dict[str, Any]:
         """

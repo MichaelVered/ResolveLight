@@ -49,7 +49,7 @@ class LearningInsightsLLM:
             try:
                 if key_to_use:
                     genai.configure(api_key=key_to_use)
-                    self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+                    self.model = genai.GenerativeModel('gemini-2.5-pro')
                     configured = True
             except Exception:
                 configured = False
