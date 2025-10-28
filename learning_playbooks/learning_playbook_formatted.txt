@@ -508,3 +508,112 @@ Generalization Warning:
 WARNING: Technical aspects (tool, field, rule) must match exactly.
 Semantic aspects (explanations) should match conceptually. Do not
 approve if validation pattern differs.
+
+
+================================================================================
+ENTRY #6
+================================================================================
+
+Timestamp: 2025-10-28 20:23:13
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-8306171C7190
+Invoice ID:       INV-HEL-2025-100
+Exception Type:   PRICE_DISCREPANCY
+Queue:            PRICE_DISCREPANCIES
+Supplier:         NovaSoft Solutions Ltd.
+Amount:           $5,400.00
+PO Number:        PO-2025-303A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: John S
+
+Feedback:
+This invoice should be approved as the invoice note is stating:
+"notes": "Loyalty discount applied - 10% discount for long-term
+partnership exceeding 3 years" So it is ok to approve invoices, if all
+details are correct, but the supplier provided a discount
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The system initially rejected the invoice due to a price discrepancy
+where the invoice amount was lower than the purchase order. The human
+expert approved it because the discrepancy was a valid, documented
+business discount. The feedback reveals that the system should be
+trained to accept invoices that are under-billed by a reasonable
+amount (up to 10%) provided there is a clear, commercially acceptable
+explanation for the discount in the invoice notes. This prevents
+rejections of beneficial price reductions like loyalty or volume
+discounts, improving efficiency and supplier relations.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from VALIDATION_DETAILS:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: line_item_validation_tool
+- Field: unit_price
+- FAILED_RULE: INVOICE_PRICE_LOWER_THAN_PO
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- The invoice line item or total amount must be lower than the
+corresponding PO amount by a percentage difference that is less than
+or equal to 10% (DIFFERENCE_PERCENTAGE <= 10%).
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- The price reduction is explained as a discount.
+- The explanation for the discount is documented within the invoice
+data (e.g., 'notes' field).
+- The explanation is commercially reasonable (e.g., loyalty discount,
+volume discount, end-of-year reduction, technology upgrade price
+drop).
+
+MUST HAVE:
+- The only validation failure must be the price discrepancy where the
+invoice amount is lower than the PO.
+- A documented explanation for the price reduction must be present in
+the invoice data.
+
+DO NOT APPROVE IF:
+- The validation pattern differs (e.g., price is higher than PO,
+quantity mismatch).
+- The discount amount exceeds the 10% threshold.
+- No reasonable explanation for the discount is provided in the
+invoice notes.
+- Other validation failures are present on the invoice.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: line_item_validation_tool, Field: unit_price, Rule: INVOICE_PRICE_LOWER_THAN_PO, Difference: <=10%}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Technical: A price discrepancy where the invoice amount is lower than the PO amount by 10% or less.
+2. Semantic/conceptual: The presence of a documented, commercially reasonable explanation for the discount (e.g., loyalty, volume).
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. Technical: `Exception Type` is `PRICE_DISCREPANCY` and the invoice amount is less than the PO amount, with the percentage difference not exceeding 10%.
+2. Semantic: The invoice contains a note or comment field that provides a plausible business reason for the price reduction.
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.9
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule, thresholds) must match
+exactly. Semantic aspects (explanations, concepts) should match
+conceptually. Do not approve if validation pattern differs.

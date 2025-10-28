@@ -188,9 +188,7 @@ class FlexibleDatabase:
         """Sync flexible exceptions from logs."""
         from .flexible_exception_parser import FlexibleExceptionParser
         
-        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logs_dir = os.path.join(repo_root, "system_logs")
-        parser = FlexibleExceptionParser(logs_dir)
+        parser = FlexibleExceptionParser()
         exceptions = parser.parse_all_exceptions()
         
         synced_count = 0
