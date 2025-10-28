@@ -738,9 +738,12 @@ class LearningDatabase:
     
     def sync_exceptions_from_logs(self) -> int:
         """Sync exceptions from log files to database - bidirectional sync."""
+        import os
         from .exception_parser import ExceptionParser
         
-        parser = ExceptionParser()
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        logs_dir = os.path.join(repo_root, "system_logs")
+        parser = ExceptionParser(logs_dir)
         current_exceptions = parser.parse_all_exceptions()
         
         # Get current exception IDs from log files
@@ -869,7 +872,8 @@ class LearningDatabase:
         
         try:
             # Determine the log file path based on queue
-            log_file_path = f"system_logs/queue_{queue.lower()}.log"
+            repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            log_file_path = os.path.join(repo_root, "system_logs", f"queue_{queue.lower()}.log")
             
             if not os.path.exists(log_file_path):
                 print(f"Log file {log_file_path} not found")
@@ -1003,7 +1007,7 @@ class LearningDatabase:
         import os
         
         po_dirs = [
-            "/Users/michaelzimmerman/projects/ResolveLight/json_files/POs",
+            os.path.join(repo_root, "json_files", "POs"),
             os.path.join(repo_root, "json_files", "golden_invoices"),
             os.path.join(repo_root, "json_files", "silver_invoices")
         ]
@@ -1034,7 +1038,7 @@ class LearningDatabase:
         import os
         
         contract_dirs = [
-            "/Users/michaelzimmerman/projects/ResolveLight/json_files/contracts",
+            os.path.join(repo_root, "json_files", "contracts"),
             os.path.join(repo_root, "json_files", "golden_invoices"),
             os.path.join(repo_root, "json_files", "silver_invoices")
         ]

@@ -235,7 +235,10 @@ class ExceptionParser:
 
 def get_exception_summary() -> Dict:
     """Get a summary of all exceptions for the dashboard"""
-    parser = ExceptionParser()
+    import os
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    logs_dir = os.path.join(repo_root, "system_logs")
+    parser = ExceptionParser(logs_dir)
     all_exceptions = parser.parse_all_exceptions()
     pending = parser.get_pending_exceptions()
     

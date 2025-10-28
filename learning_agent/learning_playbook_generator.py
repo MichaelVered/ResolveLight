@@ -87,6 +87,10 @@ class LearningPlaybookGenerator:
                 f.write(json.dumps(entry, ensure_ascii=False) + '\n')
             
             print(f"✅ Added learning entry to playbook: {entry['exception_id']}")
+            
+            # Generate formatted text file after appending
+            self._generate_formatted_txt()
+            
             return True
             
         except Exception as e:
@@ -120,6 +124,9 @@ class LearningPlaybookGenerator:
             
             print(f"✅ Generated playbook with {success_count} learning entries")
             print(f"📁 Playbook location: {self.playbook_file}")
+            
+            # Generate formatted text file after generating full playbook
+            self._generate_formatted_txt()
             
             return True
             
@@ -182,6 +189,162 @@ class LearningPlaybookGenerator:
                 "file_path": self.playbook_file,
                 "error": str(e)
             }
+    
+    def _generate_formatted_txt(self) -> bool:
+        """
+        Generate a human-readable formatted text file from the JSONL playbook.
+        Parses ALL entries and overwrites the formatted.txt file.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not os.path.exists(self.playbook_file):
+                return False
+            
+            # Read all entries from JSONL
+            entries = []
+            with open(self.playbook_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            entry = json.loads(line)
+                            entries.append(entry)
+                        except json.JSONDecodeError:
+                            continue
+            
+            if not entries:
+                return False
+            
+            # Generate formatted output
+            output_lines = []
+            output_lines.append("=" * 80)
+            output_lines.append("LEARNING PLAYBOOK - HUMAN READABLE FORMAT")
+            output_lines.append("=" * 80)
+            output_lines.append("")
+            
+            for idx, entry in enumerate(entries, 1):
+                output_lines.append(f"\n{'=' * 80}")
+                output_lines.append(f"ENTRY #{idx}")
+                output_lines.append(f"{'=' * 80}")
+                output_lines.append(f"\nTimestamp: {entry.get('timestamp', 'N/A')}")
+                output_lines.append(f"Status: {entry.get('status', 'N/A').upper()}")
+                output_lines.append(f"Learning Agent Version: {entry.get('learning_agent_version', 'N/A')}")
+                output_lines.append(f"\n{'-' * 80}")
+                output_lines.append("EXCEPTION DETAILS")
+                output_lines.append(f"{'-' * 80}")
+                output_lines.append(f"Exception ID:     {entry.get('exception_id', 'N/A')}")
+                output_lines.append(f"Invoice ID:       {entry.get('invoice_id', 'N/A')}")
+                output_lines.append(f"Exception Type:   {entry.get('exception_type', 'N/A')}")
+                output_lines.append(f"Queue:            {entry.get('queue', 'N/A')}")
+                output_lines.append(f"Supplier:         {entry.get('supplier', 'N/A')}")
+                output_lines.append(f"Amount:           {entry.get('amount', 'N/A')}")
+                output_lines.append(f"PO Number:        {entry.get('po_number', 'N/A')}")
+                output_lines.append(f"Original Decision: {entry.get('original_decision', 'N/A')}")
+                
+                output_lines.append(f"\n{'-' * 80}")
+                output_lines.append("EXPERT FEEDBACK")
+                output_lines.append(f"{'-' * 80}")
+                output_lines.append(f"Expert Name: {entry.get('expert_name', 'N/A')}")
+                output_lines.append(f"\nFeedback:")
+                feedback = entry.get('expert_feedback', 'N/A')
+                # Break long lines
+                words = feedback.split()
+                line = ""
+                for word in words:
+                    if len(line + word) > 70:
+                        output_lines.append(line.strip())
+                        line = word + " "
+                    else:
+                        line += word + " "
+                if line.strip():
+                    output_lines.append(line.strip())
+                
+                output_lines.append(f"\n{'-' * 80}")
+                output_lines.append("LEARNING INSIGHTS")
+                output_lines.append(f"{'-' * 80}")
+                insights = entry.get('learning_insights', 'N/A')
+                words = insights.split()
+                line = ""
+                for word in words:
+                    if len(line + word) > 70:
+                        output_lines.append(line.strip())
+                        line = word + " "
+                    else:
+                        line += word + " "
+                if line.strip():
+                    output_lines.append(line.strip())
+                
+                output_lines.append(f"\n{'-' * 80}")
+                output_lines.append("DECISION CRITERIA")
+                output_lines.append(f"{'-' * 80}")
+                criteria = entry.get('decision_criteria', 'N/A')
+                # Process multi-line criteria
+                for criteria_line in criteria.split('\n'):
+                    if criteria_line.strip():
+                        words = criteria_line.split()
+                        line = ""
+                        for word in words:
+                            if len(line + word) > 70:
+                                output_lines.append(line.strip())
+                                line = word + " "
+                            else:
+                                line += word + " "
+                        if line.strip():
+                            output_lines.append(line.strip())
+                    else:
+                        output_lines.append("")
+                
+                output_lines.append(f"\n{'-' * 80}")
+                output_lines.append("VALIDATION SIGNATURE")
+                output_lines.append(f"{'-' * 80}")
+                output_lines.append(entry.get('validation_signature', 'N/A'))
+                
+                output_lines.append(f"\n{'-' * 80}")
+                output_lines.append("KEY DISTINGUISHING FACTORS")
+                output_lines.append(f"{'-' * 80}")
+                factors = entry.get('key_distinguishing_factors', [])
+                for i, factor in enumerate(factors, 1):
+                    output_lines.append(f"{i}. {factor}")
+                
+                output_lines.append(f"\n{'-' * 80}")
+                output_lines.append("APPROVAL CONDITIONS")
+                output_lines.append(f"{'-' * 80}")
+                conditions = entry.get('approval_conditions', [])
+                for i, condition in enumerate(conditions, 1):
+                    output_lines.append(f"{i}. {condition}")
+                
+                output_lines.append(f"\n{'-' * 80}")
+                output_lines.append("CONFIDENCE & GENERALIZATION")
+                output_lines.append(f"{'-' * 80}")
+                output_lines.append(f"Confidence Score: {entry.get('confidence_score', 'N/A')}")
+                output_lines.append(f"\nGeneralization Warning:")
+                warning = entry.get('generalization_warning', 'N/A')
+                words = warning.split()
+                line = ""
+                for word in words:
+                    if len(line + word) > 70:
+                        output_lines.append(line.strip())
+                        line = word + " "
+                    else:
+                        line += word + " "
+                if line.strip():
+                    output_lines.append(line.strip())
+                
+                output_lines.append("")
+            
+            # Write formatted file
+            formatted_file = os.path.join(self.playbook_dir, "learning_playbook_formatted.txt")
+            with open(formatted_file, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(output_lines))
+            
+            print(f"✅ Generated formatted playbook: {formatted_file}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error generating formatted text file: {e}")
+            return False
     
     def format_playbook_for_human(self) -> str:
         """

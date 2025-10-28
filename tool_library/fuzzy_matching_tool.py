@@ -209,8 +209,8 @@ def fuzzy_resolve_invoice_to_po_and_contract(
     root = repo_root or os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
     invoice_dirs, po_dirs, contract_dirs = resolve_directories(
         root,
-        fixed_po_dir="/Users/michaelzimmerman/projects/ResolveLight/json_files/POs",
-        fixed_contract_dir="/Users/michaelzimmerman/projects/ResolveLight/json_files/contracts"
+        fixed_po_dir=os.path.join(root, "json_files", "POs"),
+        fixed_contract_dir=os.path.join(root, "json_files", "contracts")
     )
     
     result: Dict[str, Union[str, Dict[str, Any]]] = {

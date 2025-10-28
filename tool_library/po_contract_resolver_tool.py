@@ -188,9 +188,9 @@ def resolve_invoice_to_po_and_contract(
         return result
     result["invoice"] = invoice_data
 
-    # Always use fixed PO and contract directories regardless of invoice location
-    po_dirs = ["/Users/michaelzimmerman/projects/ResolveLight/json_files/POs"]
-    contract_dirs = ["/Users/michaelzimmerman/projects/ResolveLight/json_files/contracts"]
+    # Always use PO and contract directories relative to repo root
+    po_dirs = [os.path.join(root, "json_files", "POs")]
+    contract_dirs = [os.path.join(root, "json_files", "contracts")]
 
     inv_po_number = invoice_data.get("purchase_order_number")
     normalized_po = normalize_token(inv_po_number)

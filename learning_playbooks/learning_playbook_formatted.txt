@@ -1,0 +1,510 @@
+================================================================================
+LEARNING PLAYBOOK - HUMAN READABLE FORMAT
+================================================================================
+
+
+================================================================================
+ENTRY #1
+================================================================================
+
+Timestamp: 2025-10-27 17:21:30
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-8306171C7190
+Invoice ID:       INV-HEL-2025-100
+Exception Type:   PRICE_DISCREPANCY
+Queue:            PRICE_DISCREPANCIES
+Supplier:         NovaSoft Solutions Ltd.
+Amount:           $5,400.00
+PO Number:        PO-2025-303A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: MZ
+
+Feedback:
+The invoice should be approved, as there is a “note” at the bottom of
+the invoice which state that there is a discount ”notes”: Loyalty
+discount applied - 10% discount for long-term partnership exceeding 3
+years" This explain the unit price in the invoice is lower. Discounts
+should be approved if they are 10% or lower. All other information in
+the invoice should be consistent
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+This exception was initially rejected due to a price discrepancy.
+However, the human expert approved the invoice because a loyalty
+discount (10% or less) was mentioned in the invoice notes, explaining
+the lower unit price. All other invoice information was consistent.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+EXACT criteria extracted from VALIDATION_DETAILS that must be met:
+
+VALIDATION PATTERN:
+- Tool: line_item_validation_tool (implied by PRICE_DISCREPANCY)
+- Field: Unit Price (implied by PRICE_DISCREPANCY and discount
+affecting price)
+- FAILED_RULE: Unit price is inconsistent with PO (implied by context)
+
+ACCEPTABLE RANGES:
+- Discount percentage must be <= 10%
+
+MUST MATCH:
+- Invoice notes must explicitly mention a loyalty discount for
+long-term partnership.
+- The discount percentage is provided in the invoice notes
+- All other information in the invoice is consistent (e.g., quantity,
+descriptions, supplier).
+
+DO NOT APPROVE IF:
+- The discount exceeds 10%.
+- The discount is not explicitly stated as a loyalty discount for
+long-term partnership exceeding 3 years in the invoice notes.
+- There are any other discrepancies besides the unit price related to
+the discount.
+- Other invoice details are inconsistent with PO or contract.
+
+CONTEXTUAL REQUIREMENTS:
+- The exception type must be PRICE_DISCREPANCY.
+- The routing queue must be PRICE_DISCREPANCIES.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: line_item_validation_tool, Field: Unit Price, Rule: Unit price inconsistent with PO, Difference: <=10% due to Loyalty Discount}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Loyalty discount mentioned in invoice notes
+2. Discount percentage <= 10%
+3. All other invoice information is consistent
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. Loyalty discount is explicitly mentioned in invoice notes
+2. Discount percentage is <= 10%
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.85
+
+Generalization Warning:
+WARNING: This rule applies ONLY to exceptions matching the exact
+VALIDATION_DETAILS pattern. Do not generalize to different tools,
+fields, or rule types. This is specifically for price discrepancies
+explained by a documented loyalty discount of 10% or less. Any
+deviation requires human review.
+
+
+================================================================================
+ENTRY #2
+================================================================================
+
+Timestamp: 2025-10-27 19:00:43
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-8306171C7190
+Invoice ID:       INV-HEL-2025-100
+Exception Type:   PRICE_DISCREPANCY
+Queue:            PRICE_DISCREPANCIES
+Supplier:         NovaSoft Solutions Ltd.
+Amount:           $5,400.00
+PO Number:        PO-2025-303A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: michael z
+
+Feedback:
+The invoice should be approved, as there is a “note” at the bottom of
+the invoice which state that there is a discount ”notes”: Loyalty
+discount applied - 10% discount for long-term partnership exceeding 3
+years" This explain the unit price in the invoice is lower. Discounts
+should be approved if they are 10% or lower. All other information in
+the invoice should be consistent
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The exception was approved because a discount was applied to the
+invoice, explaining the price discrepancy. The discount was justified
+by a note on the invoice indicating a 'loyalty discount' due to a
+long-term partnership, which falls within an acceptable discount range
+(<=10%). All other information in the invoice was consistent.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from VALIDATION_DETAILS:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: line_item_validation_tool (inferred, assumed based on
+PRICE_DISCREPANCY and Routing Reason 'Line item validation failed')
+- Field: unit_price (inferred, assumed based on PRICE_DISCREPANCY)
+- FAILED_RULE: unit_price_validation (inferred, assumed based on
+PRICE_DISCREPANCY)
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- Discount percentage: ≤ 10%
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- Discount with documented explanation
+- Reasonable explanation for price reduction
+
+MUST HAVE:
+- A documented note on the invoice or associated documentation
+explicitly stating a discount.
+- The documented reason should be commercially reasonable (e.g.,
+volume discount, loyalty discount, end-of-year discount, promotional
+discount).
+- Discount percentage must be ≤ 10%.
+- All other invoice information must be consistent and validated.
+
+DO NOT APPROVE IF:
+- Different validation pattern (different tool/field/rule).
+- Discount percentage exceeds 10%.
+- No reasonable documented explanation for the discount is provided.
+- The discount reason is suspicious or fraudulent (e.g., "discount
+because I feel like it", "test test fake fake").
+- Other validation failures are present besides the price discrepancy
+due to the discount.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: line_item_validation_tool, Field: unit_price, Rule: unit_price_validation, Difference: ≤0.10}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Presence of a documented discount explanation
+2. Discount percentage within the acceptable range (≤ 10%)
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. A documented discount is provided in the invoice notes or associated documentation.
+2. The discount explanation is reasonable and commercially justifiable.
+3. The discount amount is ≤ 10% of the original price.
+4. All other validation checks pass.
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.85
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule, thresholds) must match
+exactly. Semantic aspects (explanations, concepts) should match
+conceptually. Do not approve if validation pattern differs.
+
+
+================================================================================
+ENTRY #3
+================================================================================
+
+Timestamp: 2025-10-27 19:47:42
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-8306171C7190
+Invoice ID:       INV-HEL-2025-100
+Exception Type:   PRICE_DISCREPANCY
+Queue:            PRICE_DISCREPANCIES
+Supplier:         NovaSoft Solutions Ltd.
+Amount:           $5,400.00
+PO Number:        PO-2025-303A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: Michael Z
+
+Feedback:
+The discount is valid and shows at the "notes" description
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The exception was a PRICE_DISCREPANCY, but the human expert approved
+the invoice because a valid discount, clearly noted in the 'notes'
+description, justified the price difference. The discount's validity,
+as determined by business best practices, was the deciding factor.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from VALIDATION_DETAILS:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: line_item_validation_tool
+- Field: unit_price
+- FAILED_RULE: unit_price > po_unit_price
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- Difference: Unit price exceeding PO unit price is acceptable if
+justified by a discount.
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- Discount with reasonable documented explanation.
+- Explanation validates the price discrepancy.
+
+MUST HAVE:
+- A discount must be explicitly mentioned in the invoice 'notes'
+description.
+- The stated discount must reasonably account for the price
+difference.
+
+DO NOT APPROVE IF:
+- Validation pattern is different (different tool/field/rule).
+- No discount is documented in the 'notes' description.
+- The discount explanation is missing or unreasonable.
+- Other issues are present besides the price discrepancy due to the
+documented discount.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: line_item_validation_tool, Field: unit_price, Rule: unit_price > po_unit_price, Discount: Present in 'notes'}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Presence of a documented discount
+2. Reasonableness of the discount explanation
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. Discount is documented in invoice notes
+2. Discount explanation is reasonable and covers discrepancy
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.85
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule) must match exactly.
+Semantic aspects (explanations, concepts) should match conceptually.
+Do not approve if validation pattern differs.
+
+
+================================================================================
+ENTRY #4
+================================================================================
+
+Timestamp: 2025-10-28 17:08:35
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-8306171C7190
+Invoice ID:       INV-HEL-2025-100
+Exception Type:   PRICE_DISCREPANCY
+Queue:            PRICE_DISCREPANCIES
+Supplier:         NovaSoft Solutions Ltd.
+Amount:           $5,400.00
+PO Number:        PO-2025-303A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: Abraham
+
+Feedback:
+Discount is legitimate. Look at the "Notes" at the bottom of the
+Invoice
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The exception was approved because a legitimate discount, justified by
+market conditions and documented in the invoice 'notes' field, was the
+cause of the price discrepancy. The system should automatically
+approve such discrepancies when a discount is clearly documented and
+explained.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from VALIDATION_DETAILS:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: line_item_validation_tool (inferred from PRICE_DISCREPANCY)
+- Field: unit_price (inferred from PRICE_DISCREPANCY)
+- FAILED_RULE: unit_price_vs_po_price (inferred from
+PRICE_DISCREPANCY)
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- DIFFERENCE: The difference in unit price is attributable to a
+discount.
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- Discount with reasonable documented explanation
+- Explanation relates to market conditions
+
+MUST HAVE:
+- 'notes' field exists in the invoice data.
+- 'notes' field contains an explanation indicating a discount.
+- Explanation provides a reason related to market adjustment or
+similar economic conditions.
+
+DO NOT APPROVE IF:
+- Different validation pattern (different tool/field/rule)
+- No documented explanation for the price discrepancy.
+- Explanation is vague or unrelated to discounts or market conditions.
+- Other issues present besides the price discrepancy related to a
+documented discount.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: line_item_validation_tool, Field: unit_price, Rule: unit_price_vs_po_price, Discount_Explanation_Present: True}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Presence of 'notes' field explaining the discount.
+2. Explanation relates to market conditions.
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. Invoice 'notes' field explains a discount.
+2. Discount explanation indicates market adjustment or similar conditions.
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.85
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule, thresholds) must match
+exactly. Semantic aspects (explanations, concepts) should match
+conceptually. Do not approve if validation pattern differs.
+Explanation in 'notes' must semantically relate to a discount based on
+market or economic conditions.
+
+
+================================================================================
+ENTRY #5
+================================================================================
+
+Timestamp: 2025-10-28 18:09:12
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-4929EA78A335
+Invoice ID:       INV-AEG-2025-100
+Exception Type:   PRICE_DISCREPANCY
+Queue:            PRICE_DISCREPANCIES
+Supplier:         Quantum Apps Co.
+Amount:           $5,600.00
+PO Number:        PO-2025-304A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: Lincoln A
+
+Feedback:
+The invoice should be approved
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The invoice was approved despite a price discrepancy because there was
+a documented explanation of a discount in the invoice notes. The
+presence of a valid discount explanation overrides the initial price
+discrepancy exception.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from VALIDATION_DETAILS:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: line_item_validation_tool
+- Field: unit_price
+- FAILED_RULE: Unit price exceeds expected price.
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- N/A (approval is based on the presence of discount explanation
+rather than a specific price difference)
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- Discount with documented explanation.
+- Reasonable explanation provided within the invoice notes or a
+designated 'notes' field explaining price adjustment.
+
+MUST HAVE:
+- 'notes' field or similar designated field in the invoice.
+- Presence of keywords or short phrases such as 'discount',
+'reduction', 'price adjustment', or other equivalent terms within the
+'notes' field, indicating a price reduction.
+
+DO NOT APPROVE IF:
+- Different validation pattern (different tool/field/rule).
+- No 'notes' field or equivalent designated field available in the
+invoice.
+- 'Notes' field is empty or does not contain any discount-related
+keywords/phrases.
+- Other validation failures are present besides the price discrepancy
+and lack of an initial discount explanation.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: line_item_validation_tool, Field: unit_price, Rule: Unit price exceeds expected price, Notes field indicates discount}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Presence of a 'notes' field on the invoice.
+2. The 'notes' field contains discount-related keywords/phrases.
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. 'notes' field or equivalent field must exist.
+2. Discount keyword/phrase must be present in the 'notes' field.
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.85
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule) must match exactly.
+Semantic aspects (explanations) should match conceptually. Do not
+approve if validation pattern differs.

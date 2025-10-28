@@ -2,7 +2,7 @@
 
 ## **Prerequisites**
 
-1. **API Key**: The system automatically reads from `/Users/michaelzimmerman/projects/.env`
+1. **API Key**: The system automatically reads from the `.env` file in the project's parent directory
    ```bash
    # Your .env file should contain:
    GEMINI_API_KEY=AIzaSyDD_oBIy1Zj-c9ZVZ0ObtJ0uUFujpvop3w
@@ -17,7 +17,7 @@
 
 ### **Option 1: One-Command Start**
 ```bash
-cd /Users/michaelzimmerman/projects/ResolveLight
+cd ResolveLight
 ./start_learning_system.sh
 ```
 
@@ -79,7 +79,7 @@ Expert Reviews Exception → Adds Feedback → AI Generates Plan → Expert Appr
 
 ## **🔧 Troubleshooting**
 
-- **API Key Error**: Make sure `.env` file exists in `/Users/michaelzimmerman/projects/`
+- **API Key Error**: Make sure `.env` file exists in the project's parent directory
 - **Port 5001 in Use**: Kill other processes or use different port
 - **No Learning Plans**: Add expert feedback first
 
