@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Learning Playbook{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-book"></i> Learning Playbook Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <form method="POST" action="{{ url_for('sync') }}" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fas fa-sync-alt"></i> Sync from Formatted File
+                </button>
+            </form>
+            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="location.reload()">
+                <i class="fas fa-refresh"></i> Refresh
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Total Entries
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_entries }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-list fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Active Entries
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.active_entries }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Exception Types
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.exception_types }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card stat-card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Experts
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.experts }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-user-tie fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Learning Entries List -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Learning Entries</h6>
+                <span class="badge bg-primary">{{ entries|length }} entries</span>
+            </div>
+            <div class="card-body">
+                {% if entries %}
+                    {% for entry in entries %}
+                    <div class="card learning-entry-card {{ entry.status|lower }} mb-3" onclick="window.location.href='{{ url_for('entry_detail', entry_number=entry.entry_number) }}'">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-10">
+                                    <h5 class="card-title">
+                                        Entry #{{ entry.entry_number }}
+                                        <span class="badge bg-{{ 'success' if entry.status == 'ACTIVE' else 'secondary' }} ms-2">
+                                            {{ entry.status }}
+                                        </span>
+                                    </h5>
+                                    <div class="row mb-2">
+                                        <div class="col-md-3">
+                                            <small class="text-muted">
+                                                <i class="fas fa-file-invoice"></i> <strong>Invoice:</strong> {{ entry.invoice_id }}
+                                            </small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted">
+                                                <i class="fas fa-box"></i> <strong>PO:</strong> {{ entry.po_number }}
+                                            </small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted">
+                                                <i class="fas fa-building"></i> <strong>Supplier:</strong> {{ entry.supplier }}
+                                            </small>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <small class="text-muted">
+                                                <i class="fas fa-exclamation-circle"></i> <strong>Type:</strong> {{ entry.exception_type }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-md-4">
+                                            <small class="text-muted">
+                                                <i class="fas fa-dollar-sign"></i> <strong>Amount:</strong> {{ entry.amount }}
+                                            </small>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <small class="text-muted">
+                                                <i class="fas fa-user-tie"></i> <strong>Expert:</strong> {{ entry.expert_name }}
+                                            </small>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock"></i> <strong>Date:</strong> {{ entry.timestamp }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    {% if entry.feedback_text %}
+                                    <p class="card-text text-muted mb-0">
+                                        <strong>Feedback:</strong> {{ entry.feedback_text[:200] }}{% if entry.feedback_text|length > 200 %}...{% endif %}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-2 text-end">
+                                    <div class="mb-2">
+                                        <span class="badge confidence-badge bg-info">
+                                            Confidence: {{ (entry.confidence_score * 100)|round(1) }}%
+                                        </span>
+                                    </div>
+                                    <a href="{{ url_for('entry_detail', entry_number=entry.entry_number) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-book fa-4x mb-3"></i>
+                        <h5>No learning entries found</h5>
+                        <p>Click "Sync from Formatted File" to load learning entries.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

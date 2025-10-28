@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Entry #{{ entry.entry_number }} - Learning Playbook{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-book"></i> Learning Entry #{{ entry.entry_number }}
+        <span class="badge bg-{{ 'success' if entry.status == 'ACTIVE' else 'secondary' }} ms-2">
+            {{ entry.status }}
+        </span>
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Header Information -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Entry Information</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th width="40%">Timestamp:</th>
+                        <td>{{ entry.timestamp }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status:</th>
+                        <td><span class="badge bg-{{ 'success' if entry.status == 'ACTIVE' else 'secondary' }}">{{ entry.status }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Learning Agent Version:</th>
+                        <td>{{ entry.learning_agent_version }}</td>
+                    </tr>
+                    <tr>
+                        <th>Exception ID:</th>
+                        <td><code>{{ entry.exception_id }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Confidence Score:</th>
+                        <td>
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar {{ 'bg-success' if entry.confidence_score >= 0.8 else 'bg-warning' if entry.confidence_score >= 0.6 else 'bg-danger' }}" 
+                                     role="progressbar" 
+                                     style="width: {{ entry.confidence_score * 100 }}%">
+                                    {{ (entry.confidence_score * 100)|round(1) }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Invoice Details</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th width="40%">Invoice ID:</th>
+                        <td><code>{{ entry.invoice_id }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>PO Number:</th>
+                        <td><code>{{ entry.po_number }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Supplier:</th>
+                        <td>{{ entry.supplier }}</td>
+                    </tr>
+                    <tr>
+                        <th>Amount:</th>
+                        <td><strong class="text-success">{{ entry.amount }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Exception Type:</th>
+                        <td><span class="badge bg-warning">{{ entry.exception_type }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Queue:</th>
+                        <td><span class="badge bg-info">{{ entry.queue }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Original Decision:</th>
+                        <td><span class="badge bg-{{ 'success' if entry.original_decision == 'APPROVED' else 'danger' }}">{{ entry.original_decision }}</span></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Expert Feedback -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-user-tie"></i> Expert Feedback</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Expert Name:</strong> {{ entry.expert_name }}
+                </div>
+                <div class="section-block">
+                    <strong>Feedback:</strong>
+                    <p class="mb-0">{{ entry.feedback_text }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Learning Insights -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-lightbulb"></i> Learning Insights</h5>
+            </div>
+            <div class="card-body">
+                <div class="code-block">{{ entry.learning_insights }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Decision Criteria -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-balance-scale"></i> Decision Criteria</h5>
+            </div>
+            <div class="card-body">
+                <div class="code-block">{{ entry.decision_criteria }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Two Column Layout for Remaining Sections -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-fingerprint"></i> Validation Signature</h5>
+            </div>
+            <div class="card-body">
+                <div class="code-block">{{ entry.validation_signature }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-star"></i> Key Distinguishing Factors</h5>
+            </div>
+            <div class="card-body">
+                <div class="code-block">{{ entry.key_distinguishing_factors }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Conditions and Generalization Warning -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-check-circle"></i> Approval Conditions</h5>
+            </div>
+            <div class="card-body">
+                <div class="code-block">{{ entry.approval_conditions }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Generalization Warning</h5>
+            </div>
+            <div class="card-body">
+                <div class="code-block">{{ entry.generalization_warning }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
