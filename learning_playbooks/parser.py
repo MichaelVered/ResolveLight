@@ -148,13 +148,18 @@ def _extract_field(text: str, field_name: str, multiline: bool = False) -> str:
     if multiline:
         # For multiline fields, capture everything until next field or empty line
         pattern = rf'{field_name}:\s*(.*?)(?=\n[A-Z][a-z]+:|\n\n|$)'
+        match = re.search(pattern, text, re.DOTALL)
     else:
-        # For single line fields
-        pattern = rf'{field_name}:\s*(.+?)(?=\n[A-Z][a-z]+:|$)'
+        # For single line fields - match only the first occurrence and stop at newline
+        # This prevents capturing duplicates when the same field appears multiple times
+        pattern = rf'^{field_name}:\s*([^\n]+)'
+        match = re.search(pattern, text, re.MULTILINE)
     
-    match = re.search(pattern, text, re.DOTALL)
     if match:
         value = match.group(1).strip()
+        # For single-line fields, only return the first line to avoid duplicates
+        if not multiline:
+            return value.split('\n')[0].strip()
         # Clean up: remove trailing dashes
         lines = value.split('\n')
         cleaned_lines = []
@@ -181,10 +186,25 @@ def load_from_jsonl(file_path: str) -> List[Dict]:
     entries = []
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
+            for line_idx, line in enumerate(f, start=1):
                 line = line.strip()
                 if line:
-                    entries.append(json.loads(line))
+                    entry = json.loads(line)
+                    # Ensure entry_number is set
+                    if 'entry_number' not in entry:
+                        entry['entry_number'] = line_idx
+                    
+                    # Normalize field names: convert expert_feedback to feedback_text for consistency
+                    if 'expert_feedback' in entry and 'feedback_text' not in entry:
+                        entry['feedback_text'] = entry.pop('expert_feedback')
+                    elif 'expert_feedback' in entry and 'feedback_text' in entry:
+                        # If both exist, prefer feedback_text, but merge if feedback_text is "N/A"
+                        if entry.get('feedback_text') == 'N/A' and entry.get('expert_feedback') != 'N/A':
+                            entry['feedback_text'] = entry['expert_feedback']
+                        # Remove expert_feedback to avoid confusion
+                        entry.pop('expert_feedback', None)
+                    
+                    entries.append(entry)
     except FileNotFoundError:
         pass
     return entries
