@@ -1,0 +1,81 @@
+================================================================================
+LEARNING PLAYBOOK ENTRY
+================================================================================
+
+Timestamp: 2025-10-27 17:21:30
+Exception ID: EXC-8306171C7190
+Invoice ID: INV-HEL-2025-100
+Exception Type: PRICE_DISCREPANCY
+Queue: PRICE_DISCREPANCIES
+Supplier: NovaSoft Solutions Ltd.
+Amount: $5,400.00
+PO Number: PO-2025-303A
+Expert Name: MZ
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK:
+--------------------------------------------------------------------------------
+The invoice should be approved, as there is a “note” at the bottom of the
+invoice which state that there is a discount”notes”: Loyalty discount
+applied - 10% discount for long-term partnership exceeding 3 years"This
+explain the unit price in the invoice is lower.Discounts should be approved
+if they are 10% or lower.  All other information in the invoice should be
+consistent
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS:
+--------------------------------------------------------------------------------
+This exception was initially rejected due to a price discrepancy. However, the
+human expert approved the invoice because a loyalty discount (10% or less) was
+mentioned in the invoice notes, explaining the lower unit price. All other
+invoice information was consistent.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE:
+--------------------------------------------------------------------------------
+{Tool: line_item_validation_tool, Field: Unit Price, Rule: Unit price inconsistent with PO, Difference: <=10% due to Loyalty Discount}
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA:
+--------------------------------------------------------------------------------
+EXACT criteria extracted from VALIDATION_DETAILS that must be met:  VALIDATION
+PATTERN: - Tool: line_item_validation_tool (implied by PRICE_DISCREPANCY) -
+Field: Unit Price (implied by PRICE_DISCREPANCY and discount affecting price)
+- FAILED_RULE: Unit price is inconsistent with PO (implied by context)
+ACCEPTABLE RANGES: - Discount percentage must be <= 10%  MUST MATCH: - Invoice
+notes must explicitly mention a loyalty discount for long-term partnership. -
+The discount percentage is provided in the invoice notes - All other
+information in the invoice is consistent (e.g., quantity, descriptions,
+supplier).  DO NOT APPROVE IF: - The discount exceeds 10%. - The discount is
+not explicitly stated as a loyalty discount for long-term partnership
+exceeding 3 years in the invoice notes. - There are any other discrepancies
+besides the unit price related to the discount. - Other invoice details are
+inconsistent with PO or contract.  CONTEXTUAL REQUIREMENTS: - The exception
+type must be PRICE_DISCREPANCY. - The routing queue must be
+PRICE_DISCREPANCIES.
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS:
+--------------------------------------------------------------------------------
+  - Loyalty discount mentioned in invoice notes
+  - Discount percentage <= 10%
+  - All other invoice information is consistent
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS:
+--------------------------------------------------------------------------------
+  - Loyalty discount is explicitly mentioned in invoice notes
+  - Discount percentage is <= 10%
+
+--------------------------------------------------------------------------------
+GENERALIZATION WARNING:
+--------------------------------------------------------------------------------
+WARNING: This rule applies ONLY to exceptions matching the exact
+VALIDATION_DETAILS pattern. Do not generalize to different tools, fields, or
+rule types.  This is specifically for price discrepancies explained by a
+documented loyalty discount of 10% or less.  Any deviation requires human
+review.
+
+Confidence Score: 0.85
+Status: active
+================================================================================

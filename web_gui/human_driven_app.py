@@ -9,6 +9,11 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Fallback for Python < 3.9 - will use pytz
+    ZoneInfo = None
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 
@@ -57,6 +62,15 @@ def dashboard():
     
     # Get pending exceptions for review
     pending_exceptions = local_db.get_pending_exceptions()
+    
+    # Format timestamps in exceptions for display
+    for exception in pending_exceptions:
+        if 'timestamp' in exception and exception['timestamp']:
+            exception['timestamp_formatted'] = format_datetime_pst(exception['timestamp'])
+        if 'created_at' in exception and exception['created_at']:
+            exception['created_at_formatted'] = format_datetime_pst(exception['created_at'])
+        if 'updated_at' in exception and exception['updated_at']:
+            exception['updated_at_formatted'] = format_datetime_pst(exception['updated_at'])
     
     # Get active feedback conversations
     active_conversations = local_db.get_active_conversations()[:10]  # Last 10 conversations
@@ -348,16 +362,40 @@ def json_pretty(value):
     return json.dumps(value, indent=2)
 
 
-@app.template_filter('datetime_format')
-def datetime_format(value):
-    """Jinja2 filter to format datetime."""
-    if isinstance(value, str):
+def format_datetime_pst(value):
+    """Helper function to format datetime to PST mm/dd/yyyy hh:mm."""
+    if isinstance(value, str) and value:
         try:
+            # Parse the datetime string
             dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
-            return dt.strftime('%Y-%m-%d %H:%M:%S')
+            # Convert to PST timezone
+            try:
+                from zoneinfo import ZoneInfo
+                pst = ZoneInfo('America/Los_Angeles')
+                if dt.tzinfo is None:
+                    # If naive datetime, assume UTC
+                    from datetime import timezone as dt_timezone
+                    dt = dt.replace(tzinfo=dt_timezone.utc)
+                # Convert to PST
+                dt_pst = dt.astimezone(pst)
+            except ImportError:
+                # Fallback to pytz for older Python versions
+                import pytz
+                pst = pytz.timezone('America/Los_Angeles')
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                dt_pst = dt.astimezone(pst)
+            # Format as mm/dd/yyyy hh:mm
+            return dt_pst.strftime('%m/%d/%Y %H:%M') + ' PST'
         except:
             return value
     return value
+
+
+@app.template_filter('datetime_format')
+def datetime_format(value):
+    """Jinja2 filter to format datetime to PST mm/dd/yyyy hh:mm."""
+    return format_datetime_pst(value)
 
 
 @app.route('/delete_exception/<exception_id>', methods=['DELETE'])
@@ -414,8 +452,22 @@ def get_exception(exception_id):
         exception = local_db.get_exception_by_id(exception_id)
         
         if exception:
-            # Get related data (invoice, PO, contract)
-            related_data = local_db.get_related_data(exception['invoice_id'])
+            # Format timestamps in exception
+            if 'timestamp' in exception and exception['timestamp']:
+                exception['timestamp_formatted'] = format_datetime_pst(exception['timestamp'])
+            if 'created_at' in exception and exception['created_at']:
+                exception['created_at_formatted'] = format_datetime_pst(exception['created_at'])
+            if 'updated_at' in exception and exception['updated_at']:
+                exception['updated_at_formatted'] = format_datetime_pst(exception['updated_at'])
+            
+            # Get related data using information from the exception itself
+            related_data = local_db.get_related_data(
+                invoice_id=exception.get('invoice_id'),
+                po_number=exception.get('po_number'),
+                contract_id=exception.get('contract_id'),  # May not be in exception, that's OK
+                supplier=exception.get('supplier'),
+                amount=exception.get('amount')
+            )
             local_db.close()
             
             return jsonify({

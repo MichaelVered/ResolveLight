@@ -29,12 +29,7 @@ EXPERT FEEDBACK
 Expert Name: MZ
 
 Feedback:
-The invoice should be approved, as there is a “note” at the bottom of
-the invoice which state that there is a discount ”notes”: Loyalty
-discount applied - 10% discount for long-term partnership exceeding 3
-years" This explain the unit price in the invoice is lower. Discounts
-should be approved if they are 10% or lower. All other information in
-the invoice should be consistent
+N/A
 
 --------------------------------------------------------------------------------
 LEARNING INSIGHTS
@@ -134,12 +129,7 @@ EXPERT FEEDBACK
 Expert Name: michael z
 
 Feedback:
-The invoice should be approved, as there is a “note” at the bottom of
-the invoice which state that there is a discount ”notes”: Loyalty
-discount applied - 10% discount for long-term partnership exceeding 3
-years" This explain the unit price in the invoice is lower. Discounts
-should be approved if they are 10% or lower. All other information in
-the invoice should be consistent
+N/A
 
 --------------------------------------------------------------------------------
 LEARNING INSIGHTS
@@ -201,10 +191,11 @@ KEY DISTINGUISHING FACTORS
 --------------------------------------------------------------------------------
 APPROVAL CONDITIONS
 --------------------------------------------------------------------------------
-1. A documented discount is provided in the invoice notes or associated documentation.
-2. The discount explanation is reasonable and commercially justifiable.
-3. The discount amount is ≤ 10% of the original price.
-4. All other validation checks pass.
+1. A documented discount is provided in the invoice notes or associated
+2. documentation.
+3. The discount explanation is reasonable and commercially justifiable.
+4. The discount amount is ≤ 10% of the original price.
+5. All other validation checks pass.
 
 --------------------------------------------------------------------------------
 CONFIDENCE & GENERALIZATION
@@ -243,7 +234,7 @@ EXPERT FEEDBACK
 Expert Name: Michael Z
 
 Feedback:
-The discount is valid and shows at the "notes" description
+N/A
 
 --------------------------------------------------------------------------------
 LEARNING INSIGHTS
@@ -338,8 +329,7 @@ EXPERT FEEDBACK
 Expert Name: Abraham
 
 Feedback:
-Discount is legitimate. Look at the "Notes" at the bottom of the
-Invoice
+N/A
 
 --------------------------------------------------------------------------------
 LEARNING INSIGHTS
@@ -397,7 +387,8 @@ KEY DISTINGUISHING FACTORS
 APPROVAL CONDITIONS
 --------------------------------------------------------------------------------
 1. Invoice 'notes' field explains a discount.
-2. Discount explanation indicates market adjustment or similar conditions.
+2. Discount explanation indicates market adjustment or similar
+3. conditions.
 
 --------------------------------------------------------------------------------
 CONFIDENCE & GENERALIZATION
@@ -438,7 +429,7 @@ EXPERT FEEDBACK
 Expert Name: Lincoln A
 
 Feedback:
-The invoice should be approved
+N/A
 
 --------------------------------------------------------------------------------
 LEARNING INSIGHTS
@@ -536,10 +527,7 @@ EXPERT FEEDBACK
 Expert Name: John S
 
 Feedback:
-This invoice should be approved as the invoice note is stating:
-"notes": "Loyalty discount applied - 10% discount for long-term
-partnership exceeding 3 years" So it is ok to approve invoices, if all
-details are correct, but the supplier provided a discount
+N/A
 
 --------------------------------------------------------------------------------
 LEARNING INSIGHTS
@@ -599,14 +587,19 @@ VALIDATION SIGNATURE
 --------------------------------------------------------------------------------
 KEY DISTINGUISHING FACTORS
 --------------------------------------------------------------------------------
-1. Technical: A price discrepancy where the invoice amount is lower than the PO amount by 10% or less.
-2. Semantic/conceptual: The presence of a documented, commercially reasonable explanation for the discount (e.g., loyalty, volume).
+1. Technical: A price discrepancy where the invoice amount is lower than
+2. the PO amount by 10% or less.
+3. Semantic/conceptual: The presence of a documented, commercially
+4. reasonable explanation for the discount (e.g., loyalty, volume).
 
 --------------------------------------------------------------------------------
 APPROVAL CONDITIONS
 --------------------------------------------------------------------------------
-1. Technical: `Exception Type` is `PRICE_DISCREPANCY` and the invoice amount is less than the PO amount, with the percentage difference not exceeding 10%.
-2. Semantic: The invoice contains a note or comment field that provides a plausible business reason for the price reduction.
+1. Technical: `Exception Type` is `PRICE_DISCREPANCY` and the invoice
+2. amount is less than the PO amount, with the percentage difference not
+3. exceeding 10%.
+4. Semantic: The invoice contains a note or comment field that provides a
+5. plausible business reason for the price reduction.
 
 --------------------------------------------------------------------------------
 CONFIDENCE & GENERALIZATION
@@ -617,3 +610,564 @@ Generalization Warning:
 WARNING: Technical aspects (tool, field, rule, thresholds) must match
 exactly. Semantic aspects (explanations, concepts) should match
 conceptually. Do not approve if validation pattern differs.
+
+
+================================================================================
+ENTRY #7
+================================================================================
+
+Timestamp: 2025-10-29 00:15:37
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-B24CAB9C30C9
+Invoice ID:       INV-DEL-2025-001
+Exception Type:   SUPPLIER_MISMATCH
+Queue:            SUPPLIER_MISMATCH
+Supplier:         BrightByte  Technologies
+Amount:           $6,600.00
+PO Number:        PO-2025-306A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: Zoo keeper
+
+Feedback:
+N/A
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The system's supplier name validation is overly sensitive, flagging
+cosmetic differences as mismatches. The human expert approved this
+exception because the core names were identical, differing only in
+whitespace, capitalization, and non-alphanumeric symbols. This
+indicates a need for a more robust, normalized string comparison logic
+that ignores superficial formatting variations to reduce false
+positives for this specific exception type.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from HUMAN FEEDBACK:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: supplier_match_tool
+- Field: supplier_info.name
+- FAILED_RULE: exact_string_match
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- COMPARISON_METHOD: After normalization (convert to lowercase, remove
+hyphens and other connecting symbols, collapse all whitespace to
+single spaces), the invoice supplier name must be an exact match to
+the purchase order or vendor master data supplier name.
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- The supplier names are lexically different but semantically
+identical.
+- The discrepancy is limited to non-substantive formatting issues,
+such as case sensitivity, extra whitespace (leading, trailing, or
+internal), and the presence of common connecting symbols (e.g.,
+hyphens).
+
+MUST HAVE:
+- The exception type must be SUPPLIER_MISMATCH.
+- The failure must be isolated to the supplier name string comparison.
+- The core alphanumeric wording of the supplier names must be
+identical after normalization.
+
+DO NOT APPROVE IF:
+- The validation failure involves a different tool, field, or rule.
+- The core words in the supplier names are different (e.g.,
+'BrightByte Technologies' vs. 'BrightByte Inc.').
+- There are other validation exceptions present on the invoice (e.g.,
+amount or PO number mismatches).
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: supplier_match_tool, Field: supplier_info.name, Rule: exact_string_match, Difference: formatting_only(case, whitespace, symbols)}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Technical: The failure is a strict string comparison that fails, but a
+2. normalized string comparison succeeds.
+3. Semantic: The names are considered identical by human operators
+4. despite trivial formatting differences.
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. The exception is a SUPPLIER_MISMATCH originating from the
+2. supplier_match_tool.
+3. The supplier name strings from the invoice and PO/master data are
+4. identical after being normalized for case, whitespace, and connecting
+5. symbols (e.g., hyphens).
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.95
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule, thresholds) must match
+exactly. Semantic aspects (explanations, concepts) should match
+conceptually. Do not approve if validation pattern differs.
+
+
+================================================================================
+ENTRY #8
+================================================================================
+
+Timestamp: 2025-10-31 17:01:14
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-4929EA78A335
+Invoice ID:       INV-AEG-2025-100
+Exception Type:   PRICE_DISCREPANCY
+Queue:            PRICE_DISCREPANCIES
+Supplier:         Quantum Apps Co.
+Amount:           $5,600.00
+PO Number:        PO-2025-304A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: michael Z
+
+Feedback:
+N/A
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The initial system rejection was incorrect because it failed to parse
+or consider unstructured data (invoice notes) that provided context
+for a structured data failure (price discrepancy). The human expert
+approved the invoice because a 'qualified discount' was explicitly
+mentioned in the notes, justifying the price difference. The feedback
+establishes a clear business rule: price discrepancies are acceptable
+if they are the result of a documented, reasonable discount and the
+variance does not exceed a 10% threshold. This indicates a need to
+enhance the system's ability to identify and interpret contextual
+notes related to pricing.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from HUMAN FEEDBACK and inferred from EXCEPTION
+DETAILS:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: line_item_validation_tool
+- Field: line_item.price
+- FAILED_RULE: PRICE_MISMATCH
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- The percentage difference between the invoice line item price and
+the PO line item price must be less than or equal to 10% (≤10%).
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- The invoice must contain a textual note or comment that documents a
+discount.
+- The documented reason must be a reasonable business justification
+for a discount (e.g., 'volume discount', 'end of quarter discount',
+'loyalty discount').
+
+MUST HAVE:
+- Technical: The exception must be a `PRICE_DISCREPANCY` triggered by
+`line_item_validation_tool`.
+- Semantic: A clear, written explanation for a discount must be
+present on the invoice document.
+
+DO NOT APPROVE IF:
+- The validation failure is from a different tool, for a different
+field, or for a different rule.
+- The price difference exceeds the 10% threshold.
+- No reasonable explanation or discount note is found on the invoice.
+- Other un-related exceptions are present on the invoice.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: line_item_validation_tool, Field: line_item.price, Rule: PRICE_MISMATCH, Difference: ≤10%}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Technical: A price mismatch where the percentage variance is ≤10%.
+2. Semantic/conceptual: The presence of documented notes on the invoice
+3. that provide a reasonable business justification for a discount.
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. Technical: The validation failure signature matches '{Tool:
+2. line_item_validation_tool, Field: line_item.price, Rule:
+3. PRICE_MISMATCH, Difference: ≤10%}'.
+4. Semantic/conceptual: Invoice contains text referencing a qualified
+5. business discount (e.g., volume, loyalty, seasonal).
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.9
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule, thresholds) must match
+exactly. Semantic aspects (explanations, concepts) should match
+conceptually. Do not approve if the validation pattern differs or if
+other exceptions exist.
+
+
+================================================================================
+ENTRY #9
+================================================================================
+
+Timestamp: 2025-10-31 20:29:12
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-4D9DA00C20F8
+Invoice ID:       INV-ORI-2025-101
+Exception Type:   SUPPLIER_MISMATCH
+Queue:            SUPPLIER_MISMATCH
+Supplier:         Pixel Perfect Developers Inc.
+Amount:           $7,200.00
+PO Number:        PO-2025-301A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: Vered Z
+
+Feedback:
+N/A
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The system's current supplier name validation uses overly strict
+string matching, leading to false positives for common and acceptable
+variations. Human feedback indicates that supplier names should be
+considered a match if they are semantically equivalent. This
+equivalence is achieved by normalizing the names before comparison.
+Normalization should include removing common corporate suffixes (e.g.,
+'Inc.', 'LLC', 'Corp.') and resolving common abbreviations to their
+full form (e.g., 'Devs' to 'Developers'). The core business name must
+match after these transformations are applied. This allows the system
+to correctly identify the same entity even when its name is
+represented with minor, standard variations.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from HUMAN FEEDBACK:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: supplier_match_tool
+- Field: supplier_name
+- FAILED_RULE: STRICT_STRING_MATCH_FAILURE
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- The difference between the invoice supplier name and the system
+supplier name is limited exclusively to a set of pre-defined corporate
+suffixes and/or common abbreviations.
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- Normalization of supplier names by removing common business entity
+suffixes (e.g., Inc., Corp., LLC, Ltd.).
+- Normalization of supplier names by expanding common shorthands or
+abbreviations to their full word (e.g., 'Devs' becomes 'Developers').
+- The remaining 'base names' must be identical after normalization.
+
+MUST HAVE:
+- Required technical conditions that must match exactly: The exception
+must be of type SUPPLIER_MISMATCH.
+- Required semantic conditions that should match conceptually: The
+mismatch must be attributable only to suffixes and/or common
+abbreviations, not differences in the core name.
+
+DO NOT APPROVE IF:
+- The core supplier names are different after normalization (e.g.,
+'Pixel Perfect' vs. 'Pixel Designs').
+- The mismatch includes any variations other than recognized corporate
+suffixes and abbreviations.
+- The invoice has other unresolved exceptions, such as price or PO
+number discrepancies.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: supplier_match_tool, Field: supplier_name, Rule: STRICT_STRING_MATCH_FAILURE, Difference: Limited to common suffixes and/or abbreviations}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Technical factor: The mismatch is isolated to the supplier name field
+2. and is caused by a strict string comparison failure.
+3. Semantic/conceptual factor: The supplier names are functionally
+4. identical, with differences only in common corporate suffixes and/or
+5. abbreviations, implying the same legal entity.
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. Technical condition: The exception type must be 'SUPPLIER_MISMATCH'.
+2. Semantic/conceptual condition: The supplier names match after
+3. normalizing by removing corporate suffixes (Inc, LLC, Corp, etc.) and
+4. resolving common abbreviations (Devs to Developers).
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.85
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule, thresholds) must match
+exactly. Semantic aspects (explanations, concepts) should match
+conceptually. Do not approve if validation pattern differs.
+
+
+================================================================================
+ENTRY #10
+================================================================================
+
+Timestamp: 2025-10-31 21:51:31
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-5A2724AA2786
+Invoice ID:       INV-NEX-2025-101
+Exception Type:   SUPPLIER_MISMATCH
+Queue:            SUPPLIER_MISMATCH
+Supplier:         Nexus Innovation LLC
+Amount:           $12,000.00
+PO Number:        PO-2025-NEX-001
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: Arie Dublin
+
+Feedback:
+N/A
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The human expert approved this exception because the supplier names
+'Nexus Innovation LLC' and 'Nexus Innovations LLC' are semantically
+identical. The system's rigid string comparison failed, but the expert
+recognized that the addition of a trailing 's' to form a plural is a
+common, insignificant variation that does not change the supplier's
+identity. This indicates that the validation logic should incorporate
+tolerance for minor grammatical differences, such as singular vs.
+plural forms, to avoid unnecessary rejections and improve
+straight-through processing rates for otherwise valid invoices.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from VALIDATION_DETAILS:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Tool: supplier_match_tool
+- Field: supplier_name
+- FAILED_RULE: EXACT_STRING_MISMATCH
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- The difference between the invoice supplier name and the master data
+supplier name is limited to a single 's' character.
+- The 's' character must be at the end of a word within the name
+string.
+- Example: 'Innovation' vs 'Innovations'.
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- The supplier names are considered a match if one is the direct
+plural form of the other.
+- The core identifying words in the supplier names must be identical,
+excluding the singular/plural variation.
+- The variation does not introduce ambiguity or suggest a different
+legal entity.
+
+MUST HAVE:
+- The exception type must be 'SUPPLIER_MISMATCH'.
+- The root cause must be a singular vs. plural name variation only.
+- All other invoice details must pass validation.
+
+DO NOT APPROVE IF:
+- The validation pattern (tool, field, or failure rule) is different.
+- The name difference involves more than a trailing 's' (e.g., 'Nexus
+Inovation' vs 'Nexus Innovation').
+- The 's' is not at the end of a word (e.g., 'Nexus Innovations' vs
+'Nexus-s Innovation').
+- Any other validation exceptions are present on the invoice.
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Tool: supplier_match_tool, Field: supplier_name, Rule: EXACT_STRING_MISMATCH, Difference: Trailing 's' on one word}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Technical factor: The string difference is exclusively a single,
+2. word-ending 's' character, indicating a plural form.
+3. Semantic/conceptual factor: The two names are recognized as
+4. representing the same entity, differing only in grammatical number
+5. (singular vs. plural).
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. Technical condition: Supplier name strings are identical except for
+2. one having a single trailing 's' on a component word.
+3. Semantic/conceptual condition: The name variation represents a common
+4. singular-to-plural form and does not alter the supplier's identity.
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.85
+
+Generalization Warning:
+WARNING: Technical aspects (tool, field, rule, thresholds) must match
+exactly. Semantic aspects (explanations, concepts) should match
+conceptually. Do not approve if validation pattern differs.
+
+
+================================================================================
+ENTRY #11
+================================================================================
+
+Timestamp: 2025-11-03 19:20:16
+Status: ACTIVE
+Learning Agent Version: 1.0
+
+--------------------------------------------------------------------------------
+EXCEPTION DETAILS
+--------------------------------------------------------------------------------
+Exception ID:     EXC-D92AAD308DB6
+Invoice ID:       INV-VOR-2025-101
+Exception Type:   SUPPLIER_MISMATCH
+Queue:            SUPPLIER_MISMATCH
+Supplier:         Catalyst Development Collective
+Amount:           $6,300.00
+PO Number:        PO-2025-309A
+Original Decision: APPROVED
+
+--------------------------------------------------------------------------------
+EXPERT FEEDBACK
+--------------------------------------------------------------------------------
+Expert Name: Graham Green
+
+Feedback:
+The supplier names are essentially the same Catalyst Development
+Collective and Catalyst Dev Collective are essentially the same You
+should reason with industry acceptable short cuts and abbreviations,
+and approve those
+
+--------------------------------------------------------------------------------
+LEARNING INSIGHTS
+--------------------------------------------------------------------------------
+The system's current supplier name validation is too rigid, failing on
+minor, commercially acceptable variations. The human expert approved
+this exception because the two supplier names, 'Catalyst Development
+Collective' and 'Catalyst Dev Collective', are semantically identical.
+The feedback establishes a clear rule: supplier names should be
+normalized before comparison. This normalization includes ignoring
+case, hyphens, whitespace, common corporate suffixes (e.g., 'Ltd.',
+'Co.'), and expanding common industry abbreviations (e.g., 'Dev' for
+'Development'). This allows the system to recognize functionally
+identical entities despite superficial string differences, reducing
+false positive exceptions.
+
+--------------------------------------------------------------------------------
+DECISION CRITERIA
+--------------------------------------------------------------------------------
+Criteria extracted from HUMAN FEEDBACK:
+
+VALIDATION PATTERN (EXACT MATCH REQUIRED):
+- Exception Type: SUPPLIER_MISMATCH
+- Routing Reason: Supplier information mismatch
+- Failed Check: Supplier name string comparison
+
+ACCEPTABLE RANGES (EXACT VALUES):
+- Post-Normalization Difference: The two supplier name strings must be
+100% identical after normalization.
+
+SEMANTIC PATTERNS (GENERALIZABLE CONCEPTS):
+- Normalization for comparison is required.
+- Ignore differences in capitalization (case-insensitivity).
+- Ignore differences in whitespace and hyphens.
+- Ignore common, industry-acceptable corporate suffixes (e.g., Ltd.,
+Co., Inc., LLC).
+- Resolve common, industry-acceptable abbreviations to their full form
+(e.g., 'Dev' to 'Development', 'Corp' to 'Corporation').
+
+MUST HAVE:
+- The exception must be a singular 'SUPPLIER_MISMATCH' due to a name
+variation.
+- The supplier names must be semantically and functionally identical
+after applying the normalization rules.
+
+DO NOT APPROVE IF:
+- The names still differ after normalization (e.g., 'Catalyst Dev' vs.
+'Catalyst Solutions').
+- Other validation exceptions are present (e.g., price discrepancies,
+missing PO).
+- The name difference involves more than just abbreviations, suffixes,
+or formatting (e.g., a completely different root name).
+
+--------------------------------------------------------------------------------
+VALIDATION SIGNATURE
+--------------------------------------------------------------------------------
+{Exception Type: SUPPLIER_MISMATCH, Field: supplier_name, Rule: exact_string_comparison, Condition: strings_match_post_normalization}
+
+--------------------------------------------------------------------------------
+KEY DISTINGUISHING FACTORS
+--------------------------------------------------------------------------------
+1. Technical: The validation failure is an exact string mismatch on the
+   supplier name.
+2. Semantic/conceptual: The supplier names are functionally identical,
+   differing only by common abbreviations, suffixes, and formatting.
+
+--------------------------------------------------------------------------------
+APPROVAL CONDITIONS
+--------------------------------------------------------------------------------
+1. Technical: The exception type is 'SUPPLIER_MISMATCH' with no other
+   concurrent validation failures.
+2. Semantic/conceptual: The supplier name on the invoice and the master
+   data are identical after normalization (case, whitespace, hyphens,
+   common suffixes, and common abbreviations).
+
+--------------------------------------------------------------------------------
+CONFIDENCE & GENERALIZATION
+--------------------------------------------------------------------------------
+Confidence Score: 0.95
+
+Generalization Warning:
+WARNING: Technical aspects (Exception Type) must match exactly.
+Semantic aspects (normalization rules) should match conceptually. Do
+not approve if the validation pattern differs or if other exceptions
+are present.

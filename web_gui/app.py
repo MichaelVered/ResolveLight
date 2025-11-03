@@ -230,11 +230,30 @@ def json_pretty(value):
 
 @app.template_filter('datetime_format')
 def datetime_format(value):
-    """Jinja2 filter to format datetime."""
+    """Jinja2 filter to format datetime to PST mm/dd/yyyy hh:mm."""
     if isinstance(value, str):
         try:
+            # Parse the datetime string
             dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
-            return dt.strftime('%Y-%m-%d %H:%M:%S')
+            # Convert to PST timezone
+            try:
+                from zoneinfo import ZoneInfo
+                pst = ZoneInfo('America/Los_Angeles')
+                if dt.tzinfo is None:
+                    # If naive datetime, assume UTC
+                    from datetime import timezone as dt_timezone
+                    dt = dt.replace(tzinfo=dt_timezone.utc)
+                # Convert to PST
+                dt_pst = dt.astimezone(pst)
+            except ImportError:
+                # Fallback to pytz for older Python versions
+                import pytz
+                pst = pytz.timezone('America/Los_Angeles')
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                dt_pst = dt.astimezone(pst)
+            # Format as mm/dd/yyyy hh:mm
+            return dt_pst.strftime('%m/%d/%Y %H:%M') + ' PST'
         except:
             return value
     return value

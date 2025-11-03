@@ -498,7 +498,7 @@ If status is "conversation_complete", the next_question field should be empty.
             return {'error': f'Error generating next question: {e}'}
 
     def _build_conversation_history(self, conversation: List[Dict[str, Any]]) -> str:
-        """Build a formatted conversation history string."""
+        """Build a formatted conversation history string with full context."""
         history_parts = []
         
         # Add initial feedback
@@ -509,17 +509,138 @@ If status is "conversation_complete", the next_question field should be empty.
         history_parts.append(f"EXPERT FEEDBACK: {initial['feedback_text']}")
         history_parts.append(f"Correct Action: {initial.get('human_correction', 'N/A')}")
         
-        # Add Q&A pairs
+        # Add exception and related data context
+        context_info = self._get_conversation_context(initial)
+        if context_info:
+            history_parts.append("\n" + context_info)
+        
+        # Retrieve the actual conversation history from the database
+        conversation_history_text = initial.get('conversation_history', '')
+        if conversation_history_text:
+            history_parts.append("\nCONVERSATION HISTORY:")
+            history_parts.append("=" * 40)
+            history_parts.append(conversation_history_text)
+        
+        # Add Q&A pairs from follow-up responses
         if len(conversation) > 1:
-            history_parts.append("\n")
+            history_parts.append("\nFOLLOW-UP RESPONSES:")
+            history_parts.append("=" * 40)
             for i, item in enumerate(conversation[1:], 1):
                 if item.get('feedback_type') == 'follow_up_response':
-                    # This is a human response
-                    history_parts.append(f"QUESTION {i}: [Previous question from system]")
-                    history_parts.append(f"RESPONSE {i}: {item['feedback_text']}")
-                    history_parts.append("")
+                    history_parts.append(f"\nRESPONSE {i}: {item['feedback_text']}")
         
         return "\n".join(history_parts)
+    
+    def _get_conversation_context(self, initial_feedback: Dict[str, Any]) -> str:
+        """Get comprehensive context including exception, invoice, PO, and contract details."""
+        context_parts = []
+        
+        try:
+            invoice_id = initial_feedback.get('invoice_id')
+            if not invoice_id:
+                return ""
+            
+            # Get exception details by invoice_id
+            exception = self._get_exception_by_invoice_id(invoice_id)
+            if exception:
+                context_parts.append("\nEXCEPTION DETAILS:")
+                context_parts.append("=" * 40)
+                context_parts.append(f"Exception ID: {exception.get('exception_id', 'N/A')}")
+                context_parts.append(f"Exception Type: {exception.get('exception_type', 'N/A')}")
+                context_parts.append(f"Queue: {exception.get('queue', 'N/A')}")
+                context_parts.append(f"Status: {exception.get('status', 'N/A')}")
+                context_parts.append(f"Routing Reason: {exception.get('routing_reason', 'N/A')}")
+                context_parts.append(f"Supplier: {exception.get('supplier', 'N/A')}")
+                context_parts.append(f"Amount: {exception.get('amount', 'N/A')}")
+                context_parts.append(f"PO Number: {exception.get('po_number', 'N/A')}")
+                
+                # Add validation details if present
+                validation_details = exception.get('VALIDATION_DETAILS')
+                if validation_details:
+                    context_parts.append("\nVALIDATION DETAILS:")
+                    if isinstance(validation_details, str):
+                        try:
+                            validation_details = json.loads(validation_details)
+                        except:
+                            pass
+                    if isinstance(validation_details, list):
+                        for i, block in enumerate(validation_details, 1):
+                            context_parts.append(f"\nBlock {i}:")
+                            if isinstance(block, dict):
+                                for key, value in block.items():
+                                    context_parts.append(f"  {key}: {value}")
+            
+            # Get related data (invoice, PO, contract)
+            related_data = self.db.get_related_data(invoice_id)
+            
+            if related_data.get('invoice'):
+                invoice = related_data['invoice']
+                context_parts.append("\nINVOICE DETAILS:")
+                context_parts.append("=" * 40)
+                context_parts.append(f"Invoice ID: {invoice.get('invoice_id', 'N/A')}")
+                context_parts.append(f"Supplier: {invoice.get('supplier', 'N/A')}")
+                context_parts.append(f"Total Amount: {invoice.get('total_amount', 'N/A')}")
+                context_parts.append(f"Invoice Date: {invoice.get('invoice_date', 'N/A')}")
+                context_parts.append(f"PO Number: {invoice.get('po_number', 'N/A')}")
+                
+                # Add line items summary
+                line_items = invoice.get('line_items', [])
+                if line_items:
+                    context_parts.append(f"\nLine Items Summary:")
+                    context_parts.append(f"  Total Items: {len(line_items)}")
+                    for i, item in enumerate(line_items[:3], 1):  # Show first 3 items
+                        context_parts.append(f"  Item {i}: {item.get('description', 'N/A')[:50]} - Qty: {item.get('quantity', 'N/A')}, Price: {item.get('unit_price', 'N/A')}")
+            
+            if related_data.get('po_item'):
+                po = related_data['po_item']
+                context_parts.append("\nPURCHASE ORDER DETAILS:")
+                context_parts.append("=" * 40)
+                context_parts.append(f"PO Number: {po.get('po_number', 'N/A')}")
+                context_parts.append(f"Total Amount: {po.get('total_amount', 'N/A')}")
+                context_parts.append(f"Status: {po.get('status', 'N/A')}")
+                context_parts.append(f"Contract ID: {po.get('contract_id', 'N/A')}")
+                
+                # Add PO line items summary
+                po_items = po.get('items', [])
+                if po_items:
+                    context_parts.append(f"\nPO Line Items Summary:")
+                    context_parts.append(f"  Total Items: {len(po_items)}")
+                    for i, item in enumerate(po_items[:3], 1):  # Show first 3 items
+                        context_parts.append(f"  Item {i}: {item.get('description', 'N/A')[:50]} - Qty: {item.get('quantity', 'N/A')}, Price: {item.get('unit_price', 'N/A')}")
+            
+            if related_data.get('contract'):
+                contract = related_data['contract']
+                context_parts.append("\nCONTRACT DETAILS:")
+                context_parts.append("=" * 40)
+                context_parts.append(f"Contract ID: {contract.get('contract_id', 'N/A')}")
+                context_parts.append(f"Supplier: {contract.get('supplier', 'N/A')}")
+                context_parts.append(f"Start Date: {contract.get('start_date', 'N/A')}")
+                context_parts.append(f"End Date: {contract.get('end_date', 'N/A')}")
+                context_parts.append(f"Total Value: {contract.get('total_value', 'N/A')}")
+                
+                # Add pricing terms if available
+                pricing_terms = contract.get('pricing_terms', {})
+                if pricing_terms:
+                    context_parts.append(f"\nPricing Terms:")
+                    for key, value in pricing_terms.items():
+                        context_parts.append(f"  {key}: {value}")
+        
+        except Exception as e:
+            print(f"Error getting conversation context: {e}")
+            context_parts.append(f"\nNote: Could not retrieve additional context: {e}")
+        
+        return "\n".join(context_parts)
+    
+    def _get_exception_by_invoice_id(self, invoice_id: str) -> Optional[Dict[str, Any]]:
+        """Get exception data by invoice ID."""
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM system_exceptions WHERE invoice_id = ?", (invoice_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        return dict(row) if row else None
     
     def close(self):
         """Close database connection."""

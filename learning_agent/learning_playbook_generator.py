@@ -304,16 +304,96 @@ class LearningPlaybookGenerator:
                 output_lines.append(f"\n{'-' * 80}")
                 output_lines.append("KEY DISTINGUISHING FACTORS")
                 output_lines.append(f"{'-' * 80}")
-                factors = entry.get('key_distinguishing_factors', [])
-                for i, factor in enumerate(factors, 1):
-                    output_lines.append(f"{i}. {factor}")
+                joint_factors = entry.get('key_distinguishing_factors', [])
+                
+                # Handle both list and string formats
+                if isinstance(joint_factors, str):
+                    # If it's a string, split by newlines to get individual factors
+                    factors = [line.strip() for line in joint_factors.split('\n') if line.strip()]
+                elif isinstance(joint_factors, list):
+                    factors = joint_factors
+                else:
+                    factors = []
+                
+                if factors:
+                    for i, factor in enumerate(factors, 1):
+                        # Remove existing numbering if present (e.g., "1. " or "2. ")
+                        factor_clean = factor.strip()
+                        if factor_clean and factor_clean[0].isdigit():
+                            # Check if it starts with a number pattern like "1. " or "2. "
+                            import re
+                            match = re.match(r'^\d+\.\s*', factor_clean)
+                            if match:
+                                factor_clean = factor_clean[match.end():]
+                        
+                        # Handle long factors by word-wrapping
+                        words = factor_clean.split()
+                        line = ""
+                        is_first_line = True
+                        for word in words:
+                            if len(line + word) > 70:
+                                if is_first_line:
+                                    output_lines.append(f"{i}. {line.strip()}")
+                                    is_first_line = False
+                                else:
+                                    output_lines.append(f"   {line.strip()}")
+                                line = word + " "
+                            else:
+                                line += word + " "
+                        if line.strip():
+                            if is_first_line:
+                                output_lines.append(f"{i}. {line.strip()}")
+                            else:
+                                output_lines.append(f"   {line.strip()}")
+                else:
+                    output_lines.append("N/A")
                 
                 output_lines.append(f"\n{'-' * 80}")
                 output_lines.append("APPROVAL CONDITIONS")
                 output_lines.append(f"{'-' * 80}")
-                conditions = entry.get('approval_conditions', [])
-                for i, condition in enumerate(conditions, 1):
-                    output_lines.append(f"{i}. {condition}")
+                joint_conditions = entry.get('approval_conditions', [])
+                
+                # Handle both list and string formats
+                if isinstance(joint_conditions, str):
+                    # If it's a string, split by newlines to get individual conditions
+                    conditions = [line.strip() for line in joint_conditions.split('\n') if line.strip()]
+                elif isinstance(joint_conditions, list):
+                    conditions = joint_conditions
+                else:
+                    conditions = []
+                
+                if conditions:
+                    for i, condition in enumerate(conditions, 1):
+                        # Remove existing numbering if present (e.g., "1. " or "2. ")
+                        condition_clean = condition.strip()
+                        if condition_clean and condition_clean[0].isdigit():
+                            # Check if it starts with a number pattern like "1. " or "2. "
+                            import re
+                            match = re.match(r'^\d+\.\s*', condition_clean)
+                            if match:
+                                condition_clean = condition_clean[match.end():]
+                        
+                        # Handle long conditions by word-wrapping
+                        words = condition_clean.split()
+                        line = ""
+                        is_first_line = True
+                        for word in words:
+                            if len(line + word) > 70:
+                                if is_first_line:
+                                    output_lines.append(f"{i}. {line.strip()}")
+                                    is_first_line = False
+                                else:
+                                    output_lines.append(f"   {line.strip()}")
+                                line = word + " "
+                            else:
+                                line += word + " "
+                        if line.strip():
+                            if is_first_line:
+                                output_lines.append(f"{i}. {line.strip()}")
+                            else:
+                                output_lines.append(f"   {line.strip()}")
+                else:
+                    output_lines.append("N/A")
                 
                 output_lines.append(f"\n{'-' * 80}")
                 output_lines.append("CONFIDENCE & GENERALIZATION")

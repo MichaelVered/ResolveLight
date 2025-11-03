@@ -113,6 +113,16 @@ class FeedbackLearningProcessor:
                 updated_exception.setdefault('confidence_score', learning_result.get('confidence_score', 0.0))
                 updated_exception.setdefault('generalization_warning', learning_result.get('generalization_warning', ''))
                 updated_exception.setdefault('learning_agent_version', self.learning_agent_version)
+                
+                # Ensure feedback from human_feedback table is used (feedback_data has the actual feedback)
+                if feedback_data.get('feedback_text'):
+                    # Use feedback from human_feedback table, prefer it over exception's expert_feedback
+                    if not updated_exception.get('expert_feedback') or updated_exception.get('expert_feedback') == 'N/A':
+                        updated_exception['expert_feedback'] = feedback_data['feedback_text']
+                if feedback_data.get('expert_name'):
+                    # Use expert name from human_feedback table if available
+                    if not updated_exception.get('expert_name') or updated_exception.get('expert_name') == 'N/A':
+                        updated_exception['expert_name'] = feedback_data['expert_name']
             else:
                 updated_exception = {
                     'exception_id': exception_data['exception_id'],
@@ -123,8 +133,9 @@ class FeedbackLearningProcessor:
                     'amount': exception_data.get('amount'),
                     'po_number': exception_data.get('po_number'),
                     'human_correction': exception_data.get('human_correction'),
-                    'expert_name': exception_data.get('expert_name'),
-                    'expert_feedback': exception_data.get('expert_feedback'),
+                    # Use feedback from feedback_data (human_feedback table) instead of exception_data
+                    'expert_name': feedback_data.get('expert_name') or exception_data.get('expert_name', 'N/A'),
+                    'expert_feedback': feedback_data.get('feedback_text') or exception_data.get('expert_feedback', 'N/A'),
                     'learning_insights': learning_result['learning_insights'],
                     'decision_criteria': learning_result['decision_criteria'],
                     'key_distinguishing_factors': learning_result.get('key_distinguishing_factors', []),

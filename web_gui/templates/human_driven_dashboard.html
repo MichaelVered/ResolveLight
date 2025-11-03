@@ -135,7 +135,7 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <small>{{ exception.timestamp or exception.created_at }}</small>
+                                        <small>{{ (exception.timestamp or exception.created_at)|datetime_format }}</small>
                                     </td>
                                     <td>
                                         <div class="d-flex gap-2">
@@ -359,7 +359,7 @@ function displayExceptionDetails(data) {
                         <p><strong>PO Number:</strong> ${exception.po_number || 'N/A'}</p>
                         <p><strong>Amount:</strong> ${exception.amount || 'N/A'}</p>
                         <p><strong>Supplier:</strong> ${exception.supplier || 'N/A'}</p>
-                        <p><strong>Created:</strong> ${exception.timestamp || exception.created_at}</p>
+                        <p><strong>Created:</strong> ${exception.timestamp_formatted || exception.created_at_formatted || exception.timestamp || exception.created_at}</p>
                         <p><strong>Status:</strong> <span class="badge bg-warning">${exception.status}</span></p>
                     </div>
                 </div>
@@ -551,9 +551,9 @@ function displayFlexibleExceptionDetails(data) {
                     <p class="mb-1"><strong>Status:</strong> <span class="badge bg-warning">${exception.status}</span></p>
                 </div>
                 <div class="col-md-6">
-                    <p class="mb-1"><strong>Created:</strong> ${exception.timestamp || exception.created_at}</p>
+                    <p class="mb-1"><strong>Created:</strong> ${exception.timestamp_formatted || exception.created_at_formatted || exception.timestamp || exception.created_at}</p>
                     <p class="mb-1"><strong>Expert Reviewed:</strong> ${exception.expert_reviewed ? '<span class="text-success">Yes</span>' : '<span class="text-danger">No</span>'}</p>
-                    <p class="mb-0"><strong>Last Updated:</strong> ${exception.updated_at || 'N/A'}</p>
+                    <p class="mb-0"><strong>Last Updated:</strong> ${exception.updated_at_formatted || exception.updated_at || 'N/A'}</p>
                 </div>
             </div>
         </div>

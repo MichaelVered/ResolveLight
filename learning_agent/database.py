@@ -628,20 +628,59 @@ class LearningDatabase:
         return exception_id
     
     def get_pending_exceptions(self) -> List[Dict[str, Any]]:
-        """Get all pending exceptions that need expert review."""
+        """Get all pending exceptions that need expert review, sorted by created date (most recent first)."""
+        from datetime import datetime
+        
         conn = self.get_connection()
         cursor = conn.cursor()
         
         cursor.execute("""
             SELECT * FROM system_exceptions 
-            WHERE expert_reviewed = FALSE 
-            ORDER BY created_at DESC
+            WHERE expert_reviewed = FALSE
         """)
         
         rows = cursor.fetchall()
         conn.close()
         
-        return [dict(row) for row in rows]
+        # Convert to list of dicts
+        exceptions = [dict(row) for row in rows]
+        
+        # Sort by the same field that's displayed in the "Created" column: timestamp or created_at
+        # This matches the template logic: (exception.timestamp or exception.created_at)
+        def get_created_datetime(exception):
+            # Use timestamp if available and not empty, otherwise use created_at
+            # This matches exactly what the template displays
+            created_value = exception.get('timestamp') or exception.get('created_at')
+            
+            if not created_value:
+                return datetime(1970, 1, 1)
+            
+            # Try to parse the datetime value
+            # Handle ISO format (YYYY-MM-DD HH:MM:SS) and other common formats
+            try:
+                # Try ISO format first
+                if 'T' in str(created_value):
+                    return datetime.fromisoformat(str(created_value).replace('Z', '+00:00').split('+')[0])
+                else:
+                    # Try common formats
+                    for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d']:
+                        try:
+                            return datetime.strptime(str(created_value), fmt)
+                        except ValueError:
+                            continue
+            except (ValueError, AttributeError):
+                pass
+            
+            # If parsing fails, return a very old date
+            return datetime(1970, 1, 1)
+        
+        # Sort by the created datetime (most recent first), then by id (newest first) as tiebreaker
+        exceptions.sort(key=lambda x: (
+            get_created_datetime(x),
+            -(x.get('id', 0))  # Negative for descending order
+        ), reverse=True)
+        
+        return exceptions
     
     def get_exception_by_id(self, exception_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific exception by its ID."""
@@ -700,20 +739,64 @@ class LearningDatabase:
         return success
     
     def get_exceptions_with_learning(self) -> List[Dict[str, Any]]:
-        """Get all exceptions that have learning insights."""
+        """Get all exceptions that have learning insights, joined with human feedback."""
         conn = self.get_connection()
         cursor = conn.cursor()
         
+        # Join with human_feedback to get feedback_text
+        # Get the most recent initial feedback for each invoice (is_initial_feedback = TRUE)
         cursor.execute("""
-            SELECT * FROM system_exceptions 
-            WHERE learning_insights IS NOT NULL AND learning_insights != ''
-            ORDER BY learning_timestamp DESC
+            SELECT 
+                se.*,
+                hf.feedback_text as human_feedback_text,
+                hf.expert_name as human_feedback_expert_name,
+                hf.created_at as feedback_created_at
+            FROM system_exceptions se
+            LEFT JOIN human_feedback hf ON se.invoice_id = hf.invoice_id 
+                AND hf.is_initial_feedback = TRUE
+                AND hf.created_at = (
+                    SELECT MAX(created_at) 
+                    FROM human_feedback hf2 
+                    WHERE hf2.invoice_id = se.invoice_id 
+                    AND hf2.is_initial_feedback = TRUE
+                )
+            WHERE se.learning_insights IS NOT NULL AND se.learning_insights != ''
+            ORDER BY se.learning_timestamp DESC
         """)
         
         rows = cursor.fetchall()
         conn.close()
         
-        return [dict(row) for row in rows]
+        # Convert rows to dicts and populate expert_feedback from human_feedback if missing
+        exceptions = []
+        for row in rows:
+            exception = dict(row)
+            
+            # If expert_feedback is missing or "N/A", use feedback_text from human_feedback
+            expert_feedback = exception.get('expert_feedback')
+            human_feedback_text = exception.get('human_feedback_text')
+            
+            if not expert_feedback or expert_feedback == 'N/A' or expert_feedback.strip() == '':
+                if human_feedback_text and human_feedback_text != 'N/A':
+                    exception['expert_feedback'] = human_feedback_text
+                elif not exception.get('expert_feedback'):
+                    exception['expert_feedback'] = human_feedback_text or 'N/A'
+            
+            # Also ensure expert_name is populated from human_feedback if missing
+            if not exception.get('expert_name') or exception.get('expert_name') == 'N/A':
+                human_expert_name = exception.get('human_feedback_expert_name')
+                if human_expert_name and human_expert_name != 'N/A':
+                    exception['expert_name'] = human_expert_name
+            
+            # Clean up temporary fields
+            exception.pop('human_feedback_text', None)
+            exception.pop('human_feedback_expert_name', None)
+            exception.pop('feedback_created_at', None)
+            exception.pop('rn', None)
+            
+            exceptions.append(exception)
+        
+        return exceptions
     
     def _trigger_learning_processing(self, feedback_id: int):
         """Trigger learning processing for a feedback entry."""
@@ -917,13 +1000,8 @@ class LearningDatabase:
             print(f"Error removing exception from log files: {e}")
             return False
 
-    def get_related_data(self, invoice_id: str) -> Dict[str, Any]:
-        """Get related data based on what's explicitly stated in the log files."""
-        import json
-        import os
-        import re
-        from pathlib import Path
-        
+    def get_related_data(self, invoice_id: str, po_number: str = None, contract_id: str = None, supplier: str = None, amount: str = None) -> Dict[str, Any]:
+        """Get related data using information from the exception itself, not file system searches."""
         result = {
             "invoice": None,
             "po_item": None,
@@ -931,47 +1009,32 @@ class LearningDatabase:
             "data_mismatches": []
         }
         
-        # Find invoice file - always try to find this
-        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        invoice_dirs = [
-            os.path.join(repo_root, "json_files", "bronze_invoices"),
-            os.path.join(repo_root, "json_files", "golden_invoices"),
-            os.path.join(repo_root, "json_files", "silver_invoices")
-        ]
+        # Build invoice object from exception data if invoice_id is provided
+        if invoice_id:
+            result["invoice"] = {
+                "invoice_id": invoice_id,
+                "purchase_order_number": po_number,
+                "contract_id": contract_id,
+                "supplier_info": {
+                    "name": supplier
+                } if supplier else None,
+                "summary": {
+                    "billing_amount": amount
+                } if amount else None
+            }
         
-        invoice_data = None
-        for invoice_dir in invoice_dirs:
-            if os.path.exists(invoice_dir):
-                for file in os.listdir(invoice_dir):
-                    if file.endswith('.json'):
-                        try:
-                            with open(os.path.join(invoice_dir, file), 'r') as f:
-                                data = json.load(f)
-                                if data.get('invoice_id') == invoice_id:
-                                    invoice_data = data
-                                    break
-                        except:
-                            continue
-                if invoice_data:
-                    break
+        # Build PO item object if po_number is provided
+        if po_number:
+            result["po_item"] = {
+                "po_number": po_number,
+                "contract_id": contract_id
+            }
         
-        if invoice_data:
-            result["invoice"] = invoice_data
-            
-            # Check log files for PO information
-            po_number = self._extract_po_from_logs(invoice_id)
-            if po_number:
-                # Find PO file
-                po_data = self._find_po_data(po_number, repo_root)
-                if po_data:
-                    result["po_item"] = po_data
-                    
-                    # Find related contract
-                    contract_id = po_data.get('contract_id')
-                    if contract_id:
-                        contract_data = self._find_contract_data(contract_id, repo_root)
-                        if contract_data:
-                            result["contract"] = contract_data
+        # Build contract object if contract_id is provided
+        if contract_id:
+            result["contract"] = {
+                "contract_id": contract_id
+            }
         
         return result
     

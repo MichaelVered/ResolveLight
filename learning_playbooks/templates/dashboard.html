@@ -150,13 +150,17 @@
                                         </div>
                                         <div class="col-md-4">
                                             <small class="text-muted">
-                                                <i class="fas fa-clock"></i> <strong>Date:</strong> {{ entry.timestamp }}
+                                                <i class="fas fa-clock"></i> <strong>Date:</strong> {{ entry.timestamp|datetime_format }}
                                             </small>
                                         </div>
                                     </div>
-                                    {% if entry.feedback_text %}
+                                    {% if entry.feedback_text and entry.feedback_text != 'N/A' %}
                                     <p class="card-text text-muted mb-0">
                                         <strong>Feedback:</strong> {{ entry.feedback_text[:200] }}{% if entry.feedback_text|length > 200 %}...{% endif %}
+                                    </p>
+                                    {% elif entry.expert_feedback and entry.expert_feedback != 'N/A' %}
+                                    <p class="card-text text-muted mb-0">
+                                        <strong>Feedback:</strong> {{ entry.expert_feedback[:200] }}{% if entry.expert_feedback|length > 200 %}...{% endif %}
                                     </p>
                                     {% endif %}
                                 </div>
